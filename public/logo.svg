@@ -1,0 +1,24 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shadow/Red offset for the C shape -->
+  <path
+    d="M77 32C72 20 62 12 48 12C26 12 8 30 8 52C8 74 26 92 48 92C70 92 88 74 88 52L88 47"
+    stroke="#a12525"
+    stroke-width="12"
+    stroke-linecap="round"
+  />
+  <!-- Main Green C shape -->
+  <path
+    d="M80 30C75 18 65 10 50 10C28 10 10 28 10 50C10 72 28 90 50 90C72 90 90 72 90 50L90 45"
+    stroke="#076600"
+    stroke-width="12"
+    stroke-linecap="round"
+  />
+  <!-- Shadow/Green offset for the bars -->
+  <rect x="50" y="12" width="10" height="40" fill="#076600" rx="1" />
+  <rect x="66" y="22" width="10" height="30" fill="#076600" rx="1" />
+  <rect x="82" y="32" width="10" height="20" fill="#076600" rx="1" />
+  <!-- Main Red Bars -->
+  <rect x="52" y="10" width="10" height="40" fill="#a12525" rx="1" />
+  <rect x="68" y="20" width="10" height="30" fill="#a12525" rx="1" />
+  <rect x="84" y="30" width="10" height="20" fill="#a12525" rx="1" />
+</svg>
