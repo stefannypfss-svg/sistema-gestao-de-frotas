@@ -1,0 +1,8 @@
+{
+  "name": "Cortez Rental - Gestão de Equipamentos",
+  "description": "Sistema completo para gestão de frotas, planejamento de alocação e previsão de receitas para locação de máquinas pesadas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
