@@ -7,7 +7,28 @@
 }
 
 @layer base {
+  html {
+    min-height: 100%;
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply antialiased text-slate-900 bg-slate-50;
+    min-height: 100vh;
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  select {
+    @apply rounded-full bg-white border border-[#e5e7eb] shadow-sm outline-none transition-all;
+  }
+
+  select:focus {
+    @apply ring-2 ring-[#076600]/10;
   }
 }

@@ -6,6 +6,7 @@ const KEYS = {
   EQUIPMENT: 'cortez_equipamentos',
   ALLOCATIONS: 'cortez_alocacoes',
   WORKS: 'cortez_obras',
+  LAST_MODIFIED: 'cortez_last_modified',
 };
 
 const INITIAL_WORKS: Work[] = [
@@ -24,6 +25,7 @@ export function useStore() {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
+  const [lastModified, setLastModified] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -71,31 +73,49 @@ export function useStore() {
       localStorage.setItem(KEYS.ALLOCATIONS, JSON.stringify(initialAlloc));
     }
 
+    const storedLastModified = localStorage.getItem(KEYS.LAST_MODIFIED);
+    const lastModifiedValue = storedLastModified || new Date().toISOString();
+
+    if (!storedLastModified) {
+      localStorage.setItem(KEYS.LAST_MODIFIED, lastModifiedValue);
+    }
+
     setEquipments(initialEquip);
     setAllocations(initialAlloc);
     setWorks(currentWorks);
+    setLastModified(lastModifiedValue);
     setIsLoaded(true);
   }, []);
 
   const saveEquipments = (newEquipments: Equipment[]) => {
+    const now = new Date().toISOString();
     setEquipments(newEquipments);
+    setLastModified(now);
     localStorage.setItem(KEYS.EQUIPMENT, JSON.stringify(newEquipments));
+    localStorage.setItem(KEYS.LAST_MODIFIED, now);
   };
 
   const saveAllocations = (newAllocations: Allocation[]) => {
+    const now = new Date().toISOString();
     setAllocations(newAllocations);
+    setLastModified(now);
     localStorage.setItem(KEYS.ALLOCATIONS, JSON.stringify(newAllocations));
+    localStorage.setItem(KEYS.LAST_MODIFIED, now);
   };
 
   const saveWorks = (newWorks: Work[]) => {
+    const now = new Date().toISOString();
     setWorks(newWorks);
+    setLastModified(now);
     localStorage.setItem(KEYS.WORKS, JSON.stringify(newWorks));
+    localStorage.setItem(KEYS.LAST_MODIFIED, now);
   };
 
   return {
     equipments,
     allocations,
     works,
+    lastModified,
     saveEquipments,
     saveAllocations,
     saveWorks,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Truck, CalendarDays, BarChart3, Search, Plus, Filter, MoreVertical, Edit, Trash2, X, ArrowRightLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Clock, Building2, Check, Slash } from 'lucide-react';
+import { LayoutDashboard, Truck, CalendarDays, BarChart3, Search, Plus, Filter, MoreVertical, Edit, Trash2, X, ArrowRightLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, DollarSign, Clock, Building2, Check, Slash, Percent, Eraser } from 'lucide-react';
 import { useStore } from './hooks/useStore';
 import { Equipment, EquipmentStatus, Allocation, Work, WorkStatus } from './types';
 import { cn, formatCurrency } from './lib/utils';
@@ -12,7 +12,7 @@ import { ptBR } from 'date-fns/locale';
 
 const LOGO_URL = "/logo.svg";
 
-const Topbar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => {
+const Topbar = ({ activeTab, setActiveTab, lastModified }: { activeTab: string, setActiveTab: (t: string) => void, lastModified: string | null }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuItems = [
     { id: 'equipamentos', label: 'Equipamentos' },
@@ -66,13 +66,15 @@ const Topbar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: 
           ))}
         </div>
 
-        {/* Right: Status */}
-        <div className="hidden md:flex items-center gap-[6px] bg-[#f0faf0] border border-[#b6e0b6] rounded-full px-3 py-1 text-[12px] text-[#076600]">
+        {/* Right: Last modified */}
+        <div className="hidden md:flex items-center gap-3 bg-[#f0faf0] border border-[#b6e0b6] rounded-full px-4 py-2 text-[12px] text-[#076600]">
             <div className="relative w-1.5 h-1.5 shrink-0">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#076600]" />
                 <div className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-[#076600] animate-ping" />
             </div>
-            <span className="font-medium">Status do Pátio: Operacional</span>
+            <span className="font-medium">
+              Atualizado em: {lastModified ? format(parseISO(lastModified), "dd'/'MM'/'yyyy 'às' HH:mm") : 'carregando...'}
+            </span>
         </div>
 
         {/* Mobile menu button */}
@@ -545,42 +547,61 @@ const EquipamentosView = ({ equipments, saveEquipments, allocations }: { equipme
             />
           </div>
           <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto">
-            <select 
-              value={filterFamily} 
-              onChange={e => setFilterFamily(e.target.value)} 
-              className={cn(
-                "h-[36px] px-3 bg-white rounded-lg border border-[#e5e7eb] outline-none text-[13px] font-medium transition-all focus:border-[#076600] w-full md:w-[160px]",
-                filterFamily === "" ? "text-gray-400" : "text-gray-900"
-              )}
+            <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm w-full md:w-[160px]">
+              <select 
+                value={filterFamily} 
+                onChange={e => setFilterFamily(e.target.value)} 
+                className={cn(
+                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10",
+                  filterFamily === "" ? "text-gray-400" : "text-gray-900"
+                )}
+              >
+                <option value="" className="text-gray-400">Todas as Famílias</option>
+                {families.map(f => <option key={f} value={f} className="text-gray-900">{f}</option>)}
+              </select>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm w-full md:w-[180px]">
+              <select 
+                value={filterLocation} 
+                onChange={e => setFilterLocation(e.target.value)} 
+                className={cn(
+                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10",
+                  filterLocation === "" ? "text-gray-400" : "text-gray-900"
+                )}
+              >
+                <option value="" className="text-gray-400">Todas as Localizações</option>
+                {locations.map(l => <option key={l} value={l} className="text-gray-900">{l}</option>)}
+              </select>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm w-full md:w-[140px]">
+              <select 
+                value={filterStatus} 
+                onChange={e => setFilterStatus(e.target.value)} 
+                className={cn(
+                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10",
+                  filterStatus === "" ? "text-gray-400" : "text-gray-900"
+                )}
+              >
+                <option value="" className="text-gray-400">Todos os Status</option>
+                <option value="Disponível" className="text-gray-900">Disponível</option>
+                <option value="Locado" className="text-gray-900">Locado</option>
+                <option value="Em Manutenção" className="text-gray-900">Em Manutenção</option>
+                <option value="Vendido" className="text-gray-900">Vendido</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setFilterFamily('');
+                setFilterLocation('');
+                setFilterStatus('');
+              }}
+              className="inline-flex items-center justify-center w-[42px] h-[42px] rounded-full bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm"
+              title="Limpar filtros"
             >
-              <option value="" className="text-gray-400">Todas as Famílias</option>
-              {families.map(f => <option key={f} value={f} className="text-gray-900">{f}</option>)}
-            </select>
-            <select 
-              value={filterLocation} 
-              onChange={e => setFilterLocation(e.target.value)} 
-              className={cn(
-                "h-[36px] px-3 bg-white rounded-lg border border-[#e5e7eb] outline-none text-[13px] font-medium transition-all focus:border-[#076600] w-full md:w-[180px]",
-                filterLocation === "" ? "text-gray-400" : "text-gray-900"
-              )}
-            >
-              <option value="" className="text-gray-400">Todas as Localizações</option>
-              {locations.map(l => <option key={l} value={l} className="text-gray-900">{l}</option>)}
-            </select>
-            <select 
-              value={filterStatus} 
-              onChange={e => setFilterStatus(e.target.value)} 
-              className={cn(
-                "h-[36px] px-3 bg-white rounded-lg border border-[#e5e7eb] outline-none text-[13px] font-medium transition-all focus:border-[#076600] w-full md:w-[140px]",
-                filterStatus === "" ? "text-gray-400" : "text-gray-900"
-              )}
-            >
-              <option value="" className="text-gray-400">Todos os Status</option>
-              <option value="Disponível" className="text-gray-900">Disponível</option>
-              <option value="Locado" className="text-gray-900">Locado</option>
-              <option value="Em Manutenção" className="text-gray-900">Em Manutenção</option>
-              <option value="Vendido" className="text-gray-900">Vendido</option>
-            </select>
+              <Eraser size={16} />
+            </button>
           </div>
         </div>
 
@@ -588,11 +609,6 @@ const EquipamentosView = ({ equipments, saveEquipments, allocations }: { equipme
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-white">
-                <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">Prefixo</th>
-                <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">Equipamento</th>
-                <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">Ano</th>
-                <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">Localização</th>
-                <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">Valor Locação</th>
                 <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">Status</th>
                 <th className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50 text-center">Ações</th>
               </tr>
@@ -819,23 +835,23 @@ const PlanejamentoView = ({ equipments, allocations, works, saveAllocations }: {
                         </button>
                     </div>
                     
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
                         <Filter size={13} className="text-gray-400 shrink-0" />
-                        <select value={filterObra} onChange={e => setFilterObra(e.target.value)} className="bg-transparent border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4">
+                        <select value={filterObra} onChange={e => setFilterObra(e.target.value)} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
                             <option value="">Todas as Obras</option>
                             {worksList.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                     </div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
                         <Filter size={13} className="text-gray-400 shrink-0" />
-                        <select value={filterFamily} onChange={e => setFilterFamily(e.target.value)} className="bg-transparent border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4">
+                        <select value={filterFamily} onChange={e => setFilterFamily(e.target.value)} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
                             <option value="">Todas as Famílias</option>
                             {families.map(f => <option key={f} value={f}>{f}</option>)}
                         </select>
                     </div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
                         <Filter size={13} className="text-gray-400 shrink-0" />
-                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-transparent border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4">
+                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
                             <option value="Todos (Ativos)">Todos (Ativos)</option>
                             <option value="Todos">Todos</option>
                             <option value="Confirmado">Confirmado</option>
@@ -843,6 +859,18 @@ const PlanejamentoView = ({ equipments, allocations, works, saveAllocations }: {
                             <option value="Cancelado">Cancelado</option>
                         </select>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setFilterObra('');
+                            setFilterFamily('');
+                            setFilterStatus('Todos (Ativos)');
+                        }}
+                        className="inline-flex items-center justify-center w-[42px] h-[42px] rounded-full bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm"
+                        title="Limpar filtros"
+                    >
+                        <Eraser size={16} />
+                    </button>
                 </div>
                 
                 <div className="flex flex-wrap gap-4 text-[12px] text-[#6b7280] font-medium whitespace-nowrap">
@@ -1247,6 +1275,7 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
     const [filterType, setFilterType] = React.useState('Todos');
     const [filterObra, setFilterObra] = React.useState('');
     const [filterFamily, setFilterFamily] = React.useState('');
+    const [efficiency, setEfficiency] = React.useState(100);
 
     const start = startOfMonth(new Date());
     const months = Array.from({ length: period }, (_, i) => addMonths(start, i));
@@ -1289,6 +1318,8 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
     });
 
     const totals = months.map((_, i) => data.reduce((sum, row) => sum + row.monthlyValues[i].value, 0));
+    const effectiveTotals = totals.map(t => t * efficiency / 100);
+    const effectiveTotal = effectiveTotals.reduce((sum, value) => sum + value, 0);
 
     const exportToCSV = () => {
         const headers = ['Prefixo', 'Equipamento', ...months.map(m => format(m, 'MMM/yy', { locale: ptBR }))];
@@ -1329,9 +1360,9 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
             <div className="bg-white border border-[#e5e7eb] rounded-xl p-[16px_20px] flex flex-wrap gap-6 items-center shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
                 <div className="flex flex-col">
                     <label className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#6b7280] mb-[6px] ml-1">PERÍODO</label>
-                    <div className="bg-white border border-[#e5e7eb] rounded-full px-[14px] py-[6px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-1.5 hover:border-gray-300 transition-colors">
+                    <div className="bg-white rounded-full border border-[#e5e7eb] px-[16px] py-[8px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-2 min-h-[44px] hover:border-gray-300 transition-colors shadow-sm">
                         <Clock size={14} className="text-gray-400 shrink-0" />
-                        <select value={period} onChange={e => setPeriod(Number(e.target.value))} className="bg-transparent border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4">
+                        <select value={period} onChange={e => setPeriod(Number(e.target.value))} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
                             <option value={6}>Próximos 6 meses</option>
                             <option value={12}>Próximos 12 meses</option>
                             <option value={24}>Próximos 24 meses</option>
@@ -1340,9 +1371,9 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
                 </div>
                 <div className="flex flex-col">
                     <label className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#6b7280] mb-[6px] ml-1">OBRA</label>
-                    <div className="bg-white border border-[#e5e7eb] rounded-full px-[14px] py-[6px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-1.5 hover:border-gray-300 transition-colors">
+                    <div className="bg-white rounded-full border border-[#e5e7eb] px-[16px] py-[8px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-2 min-h-[44px] hover:border-gray-300 transition-colors shadow-sm">
                         <Building2 size={14} className="text-gray-400 shrink-0" />
-                        <select value={filterObra} onChange={e => setFilterObra(e.target.value)} className="bg-transparent border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4">
+                        <select value={filterObra} onChange={e => setFilterObra(e.target.value)} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
                             <option value="">Todas as Obras</option>
                             {obras.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
@@ -1350,9 +1381,9 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
                 </div>
                 <div className="flex flex-col">
                     <label className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#6b7280] mb-[6px] ml-1">STATUS</label>
-                    <div className="bg-white border border-[#e5e7eb] rounded-full px-[14px] py-[6px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-1.5 hover:border-gray-300 transition-colors">
+                    <div className="bg-white rounded-full border border-[#e5e7eb] px-[16px] py-[8px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-2 min-h-[44px] hover:border-gray-300 transition-colors shadow-sm">
                         <Filter size={14} className="text-gray-400 shrink-0" />
-                        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-transparent border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4">
+                        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
                             <option value="Todos">Todas</option>
                             <option value="Atual">Status Atual</option>
                             <option value="Previsto">Previsto</option>
@@ -1360,11 +1391,38 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
                     </div>
                 </div>
 
-                <div className="md:ml-auto bg-white border border-[#e5e7eb] border-l-4 border-l-[#076600] rounded-2xl p-[20px_24px] shadow-[0_1px_4px_rgba(0,0,0,0.04)] flex flex-col min-w-[280px]">
+                <div className="flex flex-col">
+                    <label className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#6b7280] mb-[6px] ml-1">EFICIÊNCIA</label>
+                    <div className="bg-white rounded-full border border-[#e5e7eb] px-[16px] py-[8px] text-[13px] text-[#374151] cursor-pointer inline-flex items-center gap-2 min-h-[44px] hover:border-gray-300 transition-colors shadow-sm">
+                        <Percent size={14} className="text-gray-400 shrink-0" />
+                        <select value={efficiency} onChange={e => setEfficiency(Number(e.target.value))} className="h-[40px] bg-transparent rounded-full border-none outline-none text-[13px] font-medium text-[#374151] cursor-pointer appearance-none pr-4 focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10">
+                            {[100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50].map(value => (
+                                <option key={value} value={value}>{value}%</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setPeriod(12);
+                        setFilterType('Todos');
+                        setFilterObra('');
+                        setFilterFamily('');
+                        setEfficiency(100);
+                    }}
+                    className="inline-flex items-center justify-center w-[42px] h-[42px] rounded-full bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm"
+                    title="Limpar filtros"
+                >
+                    <Eraser size={16} />
+                </button>
+
+                <div className="md:ml-auto bg-white border border-[#e5e7eb] rounded-2xl p-[20px_24px] shadow-[0_1px_4px_rgba(0,0,0,0.04)] flex flex-col min-w-[280px]">
                     <span className="text-[11px] font-medium uppercase tracking-[0.05em] text-[#6b7280] mb-1">RECEITA TOTAL PREVISTA</span>
                     <span className="text-[32px] font-bold text-[#076600] leading-none mt-1">
-                        {formatCurrency(totals.reduce((a, b) => a + b, 0))}
+                        {formatCurrency(effectiveTotal)}
                     </span>
+                    <span className="mt-2 text-[11px] text-[#6b7280]">Valor ajustado em {efficiency}% de eficiência</span>
                 </div>
             </div>
 
@@ -1390,21 +1448,24 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
                                             <span className="text-[12px] text-[#6b7280] leading-tight font-normal">{row.familia}</span>
                                         </div>
                                     </td>
-                                    {row.monthlyValues.map((v, i) => (
-                                        <td key={i} className={cn(
-                                            "px-6 py-4 text-right border-l border-gray-50/50",
-                                            v.value > 0 ? "text-[13px] font-medium text-[#111827]" : "text-[13px] text-[#d1d5db]"
-                                        )}>
-                                            {formatCurrency(v.value)}
-                                        </td>
-                                    ))}
+                                    {row.monthlyValues.map((v, i) => {
+                                        const adjustedValue = v.value * efficiency / 100;
+                                        return (
+                                            <td key={i} className={cn(
+                                                "px-6 py-4 text-right border-l border-gray-50/50",
+                                                adjustedValue > 0 ? "text-[13px] font-medium text-[#111827]" : "text-[13px] text-[#d1d5db]"
+                                            )}>
+                                                {formatCurrency(adjustedValue)}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot>
                             <tr className="bg-[#f9fafb] border-t border-[#e5e7eb]">
                                 <td className="sticky left-0 z-10 bg-[#f9fafb] px-8 py-5 font-semibold text-[#111827] text-[11px] uppercase tracking-[0.05em] border-r border-[#e5e7eb]">Total Mensal</td>
-                                {totals.map((t, i) => (
+                                {effectiveTotals.map((t, i) => (
                                     <td key={i} className="px-6 py-5 text-right font-semibold text-[#076600] text-[13px] whitespace-nowrap border-l border-gray-100">
                                         {formatCurrency(t)}
                                     </td>
@@ -1422,7 +1483,7 @@ const PrevisaoView = ({ equipments, allocations, works }: { equipments: Equipmen
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState('equipamentos');
-  const { equipments, allocations, works, saveEquipments, saveAllocations, saveWorks, isLoaded } = useStore();
+  const { equipments, allocations, works, lastModified, saveEquipments, saveAllocations, saveWorks, isLoaded } = useStore();
 
   if (!isLoaded) {
     return (
@@ -1437,7 +1498,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-slate-900 font-sans selection:bg-[#076600] selection:text-white pt-[52px]">
-      <Topbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Topbar activeTab={activeTab} setActiveTab={setActiveTab} lastModified={lastModified} />
       
       <main className="w-full relative overflow-x-hidden px-4 md:px-8 py-8">
         <AnimatePresence mode="wait">

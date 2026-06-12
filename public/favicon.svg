@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Cabin/Body (Yellow) -->
+  <rect x="100" y="120" width="110" height="75" fill="#F4B233" stroke="black" stroke-width="2" rx="6"/>
+  
+  <!-- Cabin top accent (darker yellow) -->
+  <rect x="100" y="115" width="110" height="8" fill="#D4932D" rx="4"/>
+  
+  <!-- Windows/Cabin glass -->
+  <rect x="125" y="135" width="30" height="28" fill="#4A90E2" stroke="black" stroke-width="1.5" rx="2"/>
+  <rect x="165" y="135" width="30" height="28" fill="#4A90E2" stroke="black" stroke-width="1.5" rx="2"/>
+  
+  <!-- Exhaust stack -->
+  <rect x="215" y="110" width="12" height="40" fill="black" rx="2"/>
+  <ellipse cx="221" cy="108" rx="7" ry="4" fill="black"/>
+  
+  <!-- Main boom (upper arm) -->
+  <line x1="110" y1="120" x2="60" y2="50" stroke="#F4B233" stroke-width="16" stroke-linecap="round"/>
+  <line x1="110" y1="120" x2="60" y2="50" stroke="black" stroke-width="2" stroke-linecap="round" fill="none"/>
+  
+  <!-- Boom joint/pin -->
+  <circle cx="110" cy="120" r="11" fill="black"/>
+  <circle cx="110" cy="120" r="6" fill="#D4932D"/>
+  
+  <!-- Boom end joint -->
+  <circle cx="60" cy="50" r="10" fill="black"/>
+  <circle cx="60" cy="50" r="5" fill="#D4932D"/>
+  
+  <!-- Dipper/bucket arm -->
+  <line x1="60" y1="50" x2="35" y2="105" stroke="#F4B233" stroke-width="14" stroke-linecap="round"/>
+  <line x1="60" y1="50" x2="35" y2="105" stroke="black" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  
+  <!-- Bucket (darker yellow/black) -->
+  <path d="M 28 115 L 15 145 L 50 160 L 60 120 Z" fill="#D4932D" stroke="black" stroke-width="2" stroke-linejoin="round"/>
+  
+  <!-- Bucket teeth -->
+  <line x1="20" y1="145" x2="22" y2="160" stroke="black" stroke-width="1.5"/>
+  <line x1="32" y1="140" x2="35" y2="158" stroke="black" stroke-width="1.5"/>
+  <line x1="42" y1="135" x2="48" y2="160" stroke="black" stroke-width="1.5"/>
+  
+  <!-- Tracks/Undercarriage (base ellipse) -->
+  <ellipse cx="155" cy="210" rx="80" ry="32" fill="black" stroke="black" stroke-width="1"/>
+  
+  <!-- Track rim/edge highlight -->
+  <ellipse cx="155" cy="208" rx="80" ry="28" fill="none" stroke="#444" stroke-width="2"/>
+  
+  <!-- Track wheels/rollers (yellow) -->
+  <circle cx="100" cy="210" r="22" fill="#F4B233" stroke="black" stroke-width="2.5"/>
+  <circle cx="100" cy="210" r="16" fill="none" stroke="black" stroke-width="1.5"/>
+  
+  <circle cx="145" cy="225" r="22" fill="#F4B233" stroke="black" stroke-width="2.5"/>
+  <circle cx="145" cy="225" r="16" fill="none" stroke="black" stroke-width="1.5"/>
+  
+  <circle cx="190" cy="225" r="22" fill="#F4B233" stroke="black" stroke-width="2.5"/>
+  <circle cx="190" cy="225" r="16" fill="none" stroke="black" stroke-width="1.5"/>
+  
+  <circle cx="235" cy="210" r="22" fill="#F4B233" stroke="black" stroke-width="2.5"/>
+  <circle cx="235" cy="210" r="16" fill="none" stroke="black" stroke-width="1.5"/>
+  
+  <!-- CAT Logo badge -->
+  <rect x="125" y="122" width="35" height="12" fill="black" rx="2"/>
+  <text x="142.5" y="130" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#F4B233" text-anchor="middle">CAT</text>
+</svg>
