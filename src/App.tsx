@@ -547,9 +547,9 @@ const EquipamentosView = ({ equipments, saveEquipments, allocations }: { equipme
             />
           </div>
           <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm w-full md:w-[160px]">
-              <select 
-                value={filterFamily} 
+            <div className="inline-flex items-center min-w-35">
+              <select
+                value={filterFamily}
                 onChange={e => setFilterFamily(e.target.value)} 
                 className={cn(
                   "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10",
@@ -560,12 +560,12 @@ const EquipamentosView = ({ equipments, saveEquipments, allocations }: { equipme
                 {families.map(f => <option key={f} value={f} className="text-gray-900">{f}</option>)}
               </select>
             </div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm w-full md:w-[180px]">
-              <select 
-                value={filterLocation} 
-                onChange={e => setFilterLocation(e.target.value)} 
+            <div className="inline-flex items-center min-w-35">
+              <select
+                value={filterLocation}
+                onChange={e => setFilterLocation(e.target.value)}
                 className={cn(
-                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10",
+                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all",
                   filterLocation === "" ? "text-gray-400" : "text-gray-900"
                 )}
               >
@@ -573,12 +573,12 @@ const EquipamentosView = ({ equipments, saveEquipments, allocations }: { equipme
                 {locations.map(l => <option key={l} value={l} className="text-gray-900">{l}</option>)}
               </select>
             </div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] bg-white rounded-full border border-[#e5e7eb] text-[13px] text-[#374151] cursor-pointer hover:border-gray-300 transition-colors shadow-sm w-full md:w-[140px]">
-              <select 
-                value={filterStatus} 
-                onChange={e => setFilterStatus(e.target.value)} 
+            <div className="inline-flex items-center min-w-35">
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
                 className={cn(
-                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all focus:border-[#076600] focus:ring-2 focus:ring-[#076600]/10",
+                  "h-[40px] w-full bg-transparent rounded-full border-none outline-none text-[13px] font-medium transition-all",
                   filterStatus === "" ? "text-gray-400" : "text-gray-900"
                 )}
               >
