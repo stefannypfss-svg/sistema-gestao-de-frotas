@@ -37,6 +37,12 @@ export interface Work {
 export interface Allocation {
   id: string;
   prefixo: string;
+  /**
+   * Referência para a obra (FK futura). Hoje pode estar vazio em dados
+   * legados; nesses casos o nome em `obra` é a fonte de verdade.
+   */
+  obraId: string;
+  /** Nome da obra mantido para exibição e compatibilidade com dados legados. */
   obra: string;
   tipo: AllocationType;
   statusAlocacao: AllocationStatus;
@@ -47,3 +53,6 @@ export interface Allocation {
   valorLocacao: number;
   observacoes: string;
 }
+
+/** Entidades que possuem identificador único. */
+export type Identifiable = Equipment | Work | Allocation;
