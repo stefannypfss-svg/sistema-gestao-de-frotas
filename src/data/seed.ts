@@ -1,4 +1,16 @@
-import { Equipment } from "./types";
+import { Equipment, Work } from "../types";
+
+export const INITIAL_WORKS: Work[] = [
+  { id: "1", nome: "Dom Inocêncio", cliente: "", status: "Ativa", observacoes: "" },
+  { id: "2", nome: "Babilônia Solar", cliente: "", status: "Ativa", observacoes: "" },
+  { id: "3", nome: "Babilônia Centro", cliente: "", status: "Ativa", observacoes: "" },
+  { id: "4", nome: "Britageo - Caucaia - CE", cliente: "Britageo", status: "Ativa", observacoes: "" },
+  { id: "5", nome: "Pedra de Amolar e Paraíso Farol", cliente: "", status: "Ativa", observacoes: "" },
+  { id: "6", nome: "Passareli - Cinturão das Águas do Ceará L4 - Ceará", cliente: "Passareli", status: "Ativa", observacoes: "" },
+  { id: "7", nome: "Alliance", cliente: "Alliance", status: "Ativa", observacoes: "" },
+  { id: "8", nome: "Teci Infraestrutura - Fortaleza - CE", cliente: "Teci", status: "Ativa", observacoes: "" },
+  { id: "9", nome: "Cortez - Itarema - CE", cliente: "Cortez", status: "Ativa", observacoes: "" },
+];
 
 export const INITIAL_EQUIPMENT: Equipment[] = [
   {"prefixo":"BLF01","grupo":"A","grupoEquipamento":"Linha Branca Principal","familia":"Bomba Lança","descricao":"Bomba lança até 35m","modelo":"Cargo 2629 / S32 X","franquia":1500,"valorLocacao":55000,"ano":"2014","placa":"OSK1030","chassi":"9BFZEANE7EBS64305","localizacaoAtual":"Dom Inocêncio","status":"Locado"},
