@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Filter, X } from 'lucide-react';
+import { Filter, LogOut, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { TabId, TABS } from '../../config/navigation';
 
@@ -9,9 +9,10 @@ const LOGO_URL = '/logo.svg';
 interface TopbarProps {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
+  onLogout?: () => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab }) => {
+export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   return (
@@ -65,6 +66,17 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab }) => {
           </div>
           <span className="font-medium">Status do Pátio: Operacional</span>
         </div>
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title="Sair"
+            className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-gray-500 hover:text-brand transition-colors ml-4"
+          >
+            <LogOut size={16} />
+            Sair
+          </button>
+        )}
 
         {/* Mobile toggle */}
         <button
