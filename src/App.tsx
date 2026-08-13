@@ -1,16 +1,19 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from './hooks/useStore';
+import { useAuth } from './hooks/useAuth';
 import { TabId } from './config/navigation';
 import { Topbar } from './components/layout/Topbar';
 import { EquipmentsView } from './features/equipments/EquipmentsView';
 import { WorksView } from './features/works/WorksView';
 import { PlanningView } from './features/planning/PlanningView';
 import { ForecastView } from './features/forecast/ForecastView';
+import { LoginView } from './features/auth/LoginView';
 
-export default function App() {
+function AppShell() {
   const [activeTab, setActiveTab] = React.useState<TabId>('equipamentos');
   const { equipments, works, allocations, isLoading } = useStore();
+  const { logout } = useAuth();
 
   if (isLoading) {
     return (
@@ -27,7 +30,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-slate-900 font-sans selection:bg-brand selection:text-white pt-[52px]">
-      <Topbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Topbar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={logout} />
 
       <main className="w-full relative overflow-x-hidden px-4 md:px-8 py-8">
         <AnimatePresence mode="wait">
@@ -62,4 +65,22 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+export default function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginView />;
+  }
+
+  return <AppShell />;
 }
