@@ -5,11 +5,16 @@ import {
   doc,
   limit,
   query,
+  getDoc,
+  setDoc,
   Firestore,
 } from 'firebase/firestore';
 import { Allocation } from '../types';
 import { INITIAL_EQUIPMENT, INITIAL_WORKS } from '../data/seed';
 import { HOME_BASE } from '../config/theme';
+
+/** Incrementar este valor força o re-seed de equipamentos no próximo startup. */
+const EQUIPMENT_SEED_VERSION = '4-clean-reseed';
 
 /**
  * Alocações iniciais derivadas dos equipamentos locados fora da base.
@@ -38,6 +43,15 @@ function buildInitialAllocations(): Allocation[] {
   });
 }
 
+/** Apaga todos os documentos de uma coleção (batch, máx 500 por vez). */
+async function clearCollection(db: Firestore, name: string): Promise<void> {
+  const snapshot = await getDocs(collection(db, name));
+  if (snapshot.empty) return;
+  const batch = writeBatch(db);
+  snapshot.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+}
+
 /** Verdadeiro se a coleção não tem nenhum documento. */
 async function isEmpty(db: Firestore, name: string): Promise<boolean> {
   const snapshot = await getDocs(query(collection(db, name), limit(1)));
@@ -60,15 +74,38 @@ async function seedCollection<T>(
 }
 
 /**
- * Popula o Firestore na primeira execução. Idempotente: cada coleção só é
- * semeada se estiver vazia, então rodar de novo não duplica nada.
+ * Retorna a versão atual do seed de equipamentos gravada no Firestore.
+ * Retorna null se ainda não foi gravada.
+ */
+async function getEquipmentSeedVersion(db: Firestore): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, '_meta', 'seedVersion'));
+    if (!snap.exists()) return null;
+    return (snap.data()?.equipment as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setEquipmentSeedVersion(db: Firestore, version: string): Promise<void> {
+  await setDoc(doc(db, '_meta', 'seedVersion'), { equipment: version }, { merge: true });
+}
+
+/**
+ * Popula o Firestore na primeira execução e força re-seed de equipamentos
+ * quando a versão do seed muda (novos campos adicionados).
  */
 export async function seedFirestore(
   db: Firestore,
   collections: { equipment: string; works: string; allocations: string },
 ): Promise<void> {
-  if (await isEmpty(db, collections.equipment)) {
+  const storedVersion = await getEquipmentSeedVersion(db);
+  const needsEquipmentSeed = storedVersion !== EQUIPMENT_SEED_VERSION;
+
+  if (needsEquipmentSeed) {
+    await clearCollection(db, collections.equipment);
     await seedCollection(db, collections.equipment, INITIAL_EQUIPMENT, (e) => e.prefixo);
+    await setEquipmentSeedVersion(db, EQUIPMENT_SEED_VERSION);
   }
   if (await isEmpty(db, collections.works)) {
     await seedCollection(db, collections.works, INITIAL_WORKS, (w) => w.id);

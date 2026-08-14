@@ -21,6 +21,15 @@ const COLLECTIONS = {
   allocations: 'alocacoes',
 } as const;
 
+/** Incrementar força o re-seed do localStorage de equipamentos. */
+const LS_EQUIPMENT_VERSION = '4-clean-reseed';
+const LS_VERSION_KEY = 'cortez_equipamentos_version';
+
+if (localStorage.getItem(LS_VERSION_KEY) !== LS_EQUIPMENT_VERSION) {
+  localStorage.removeItem('cortez_equipamentos');
+  localStorage.setItem(LS_VERSION_KEY, LS_EQUIPMENT_VERSION);
+}
+
 const getEquipmentKey = (e: Equipment) => e.prefixo;
 const getWorkKey = (w: Work) => w.id;
 const getAllocationKey = (a: Allocation) => a.id;
