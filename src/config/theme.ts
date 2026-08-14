@@ -6,7 +6,7 @@
  * domínio (status de equipamento, status de alocação), mantendo as classes
  * estáveis e analisáveis pelo Tailwind.
  */
-import { EquipmentStatus, AllocationStatus, WorkStatus } from '../types';
+import { SituacaoEquipamento, StatusOperacional, AllocationStatus, WorkStatus } from '../types';
 
 export interface BadgeStyle {
   /** Classe de fundo + texto para chips/badges */
@@ -17,11 +17,15 @@ export interface BadgeStyle {
   solid: string;
 }
 
-export const EQUIPMENT_STATUS_STYLES: Record<EquipmentStatus, BadgeStyle> = {
-  'Locado': { chip: 'bg-brand-light text-brand', text: 'text-brand', solid: 'bg-brand' },
-  'Disponível': { chip: 'bg-info-light text-info', text: 'text-info', solid: 'bg-info' },
-  'Em Manutenção': { chip: 'bg-warning-light text-warning', text: 'text-warning', solid: 'bg-warning' },
-  'Vendido': { chip: 'bg-gray-100 text-gray-500', text: 'text-gray-500', solid: 'bg-gray-400' },
+export const SITUACAO_STYLES: Record<SituacaoEquipamento, BadgeStyle> = {
+  'Mobilizado':    { chip: 'bg-brand-light text-brand',     text: 'text-brand',   solid: 'bg-brand' },
+  'Desmobilizado': { chip: 'bg-gray-100 text-gray-500',     text: 'text-gray-500', solid: 'bg-gray-400' },
+};
+
+export const STATUS_OPERACIONAL_STYLES: Record<StatusOperacional, BadgeStyle> = {
+  'Operação':   { chip: 'bg-brand-light text-brand',       text: 'text-brand',   solid: 'bg-brand' },
+  'Disponível': { chip: 'bg-info-light text-info',         text: 'text-info',    solid: 'bg-info' },
+  'Manutenção': { chip: 'bg-warning-light text-warning',   text: 'text-warning', solid: 'bg-warning' },
 };
 
 export const ALLOCATION_STATUS_STYLES: Record<AllocationStatus, BadgeStyle> = {

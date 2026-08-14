@@ -18,7 +18,7 @@ import { HOME_BASE } from '../config/theme';
 function buildInitialAllocations(): Allocation[] {
   const startOfYear = new Date(2024, 0, 1).toISOString();
   return INITIAL_EQUIPMENT.filter(
-    (eq) => eq.localizacaoAtual !== HOME_BASE && eq.status === 'Locado',
+    (eq) => eq.localizacaoAtual !== HOME_BASE && eq.situacao === 'Mobilizado',
   ).map((eq, index) => {
     const work = INITIAL_WORKS.find((w) => w.nome === eq.localizacaoAtual);
     return {

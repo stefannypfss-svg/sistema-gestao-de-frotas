@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type EquipmentStatus = 'Disponível' | 'Locado' | 'Em Manutenção' | 'Vendido';
+/** Onde o equipamento está fisicamente: em obra ou na base. */
+export type SituacaoEquipamento = 'Mobilizado' | 'Desmobilizado';
+
+/** Condição operacional do equipamento. */
+export type StatusOperacional = 'Operação' | 'Disponível' | 'Manutenção';
 
 export interface Equipment {
   prefixo: string;
@@ -18,7 +22,12 @@ export interface Equipment {
   placa: string;
   chassi: string;
   localizacaoAtual: string;
-  status: EquipmentStatus;
+  /** Mobilizado = em obra · Desmobilizado = na base */
+  situacao: SituacaoEquipamento;
+  /** Condição operacional: em operação, disponível para locar ou em manutenção */
+  statusOperacional: StatusOperacional;
+  /** false = equipamento desativado (vendido, baixado, sucateado) */
+  ativo: boolean;
 }
 
 export type AllocationType = 'Atual' | 'Previsto';
@@ -29,6 +38,7 @@ export type WorkStatus = 'Ativa' | 'Encerrada' | 'Suspensa';
 export interface Work {
   id: string;
   nome: string;
+  abreviacao: string;
   cliente: string;
   status: WorkStatus;
   observacoes: string;
