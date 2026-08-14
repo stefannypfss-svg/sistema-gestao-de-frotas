@@ -19,8 +19,11 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogou
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const lastChange = useLastChange();
 
+  const formatUser = (name: string) =>
+    name.includes('@') ? name.split('@')[0] : name;
+
   const lastChangeLabel = lastChange
-    ? `${format(parseISO(lastChange.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} · ${lastChange.userName}`
+    ? `${format(parseISO(lastChange.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} · por ${formatUser(lastChange.userName)}`
     : null;
 
   return (
