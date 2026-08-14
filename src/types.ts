@@ -84,5 +84,18 @@ export interface Allocation {
   observacoes: string;
 }
 
+export interface EquipamentoObra {
+  id: string;
+  prefixo: string;
+  obra: string;
+  situacao: SituacaoEquipamento;
+  dataRecebimento?: string;
+  dataLiberacaoMecanica?: string;
+  dataMobilizacao?: string;
+  dataDesmobilizacao?: string;
+  dataEnvio?: string;
+  observacao?: string;
+}
+
 /** Entidades que possuem identificador único. */
 export type Identifiable = Equipment | Work | Allocation;

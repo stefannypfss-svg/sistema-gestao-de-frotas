@@ -9,12 +9,14 @@ import {
   setDoc,
   Firestore,
 } from 'firebase/firestore';
-import { Allocation } from '../types';
+import { Allocation, EquipamentoObra } from '../types';
 import { INITIAL_EQUIPMENT, INITIAL_WORKS } from '../data/seed';
 import { HOME_BASE } from '../config/theme';
 
 /** Incrementar este valor força o re-seed de equipamentos no próximo startup. */
 const EQUIPMENT_SEED_VERSION = '4-clean-reseed';
+/** Incrementar força o re-seed de equipamento-por-obra. */
+const EQUIP_OBRA_SEED_VERSION = '2-location-names';
 
 /**
  * Alocações iniciais derivadas dos equipamentos locados fora da base.
@@ -91,13 +93,46 @@ async function setEquipmentSeedVersion(db: Firestore, version: string): Promise<
   await setDoc(doc(db, '_meta', 'seedVersion'), { equipment: version }, { merge: true });
 }
 
+async function getEquipObraSeedVersion(db: Firestore): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, '_meta', 'seedVersion'));
+    if (!snap.exists()) return null;
+    return (snap.data()?.equipamentoObra as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setEquipObraSeedVersion(db: Firestore, version: string): Promise<void> {
+  await setDoc(doc(db, '_meta', 'seedVersion'), { equipamentoObra: version }, { merge: true });
+}
+
+const LOCATION_TO_OBRA: Record<string, string> = {
+  'EDI':           'Dom Inocêncio',
+  'EDV':           'Esquina dos Ventos',
+  'CER':           'Central de Equipamentos Rental',
+  'ALI':           'Alliance',
+  'NORTCOM':       'Nortcom',
+  'SP-MANUTENÇÃO': 'Manutenção Terceirizada',
+  'CTZ-ITA':       'Cortez - Itarema - CE',
+};
+
+function buildInitialEquipamentoObra(): EquipamentoObra[] {
+  return INITIAL_EQUIPMENT.map((e) => ({
+    id: e.prefixo,
+    prefixo: e.prefixo,
+    obra: LOCATION_TO_OBRA[e.localizacaoAtual] ?? e.localizacaoAtual,
+    situacao: e.situacao,
+  }));
+}
+
 /**
  * Popula o Firestore na primeira execução e força re-seed de equipamentos
  * quando a versão do seed muda (novos campos adicionados).
  */
 export async function seedFirestore(
   db: Firestore,
-  collections: { equipment: string; works: string; allocations: string },
+  collections: { equipment: string; works: string; allocations: string; equipamentoObra: string },
 ): Promise<void> {
   const storedVersion = await getEquipmentSeedVersion(db);
   const needsEquipmentSeed = storedVersion !== EQUIPMENT_SEED_VERSION;
@@ -109,8 +144,26 @@ export async function seedFirestore(
   }
   if (await isEmpty(db, collections.works)) {
     await seedCollection(db, collections.works, INITIAL_WORKS, (w) => w.id);
+  } else {
+    // Garante que obras adicionadas depois do seed inicial sejam criadas.
+    const missing = await Promise.all(
+      INITIAL_WORKS.map(async (w) => {
+        const snap = await getDoc(doc(db, collections.works, w.id));
+        return snap.exists() ? null : w;
+      }),
+    );
+    const toAdd = missing.filter(Boolean) as typeof INITIAL_WORKS;
+    if (toAdd.length > 0) {
+      await seedCollection(db, collections.works, toAdd, (w) => w.id);
+    }
   }
   if (await isEmpty(db, collections.allocations)) {
     await seedCollection(db, collections.allocations, buildInitialAllocations(), (a) => a.id);
+  }
+  const storedEquipObraVersion = await getEquipObraSeedVersion(db);
+  if (storedEquipObraVersion !== EQUIP_OBRA_SEED_VERSION) {
+    await clearCollection(db, collections.equipamentoObra);
+    await seedCollection(db, collections.equipamentoObra, buildInitialEquipamentoObra(), (r) => r.id);
+    await setEquipObraSeedVersion(db, EQUIP_OBRA_SEED_VERSION);
   }
 }
