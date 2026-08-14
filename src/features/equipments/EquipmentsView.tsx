@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, Plus, Edit, ArrowRightLeft, Trash2, Eraser } from 'lucide-react';
-import { Equipment, EquipmentStatus, Allocation } from '../../types';
+import { Equipment, SituacaoEquipamento, StatusOperacional, Allocation } from '../../types';
 import { cn, formatCurrency } from '../../lib/utils';
 import {
   getEquipmentLocation,
@@ -10,7 +10,7 @@ import {
 } from '../../domain/equipment';
 import { HOME_BASE } from '../../config/theme';
 import { Collection } from '../../hooks/useCollection';
-import { StatusBadge } from '../../components/StatusBadge';
+import { SituacaoBadge, StatusOperacionalBadge, InativoBadge } from '../../components/StatusBadge';
 import {
   PageHeader,
   Button,
@@ -34,19 +34,22 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
   const { items, loading, error } = equipments;
   const [search, setSearch] = React.useState('');
   const [filterFamily, setFilterFamily] = React.useState('');
+  const [filterSituacao, setFilterSituacao] = React.useState('');
   const [filterStatus, setFilterStatus] = React.useState('');
   const [filterLocation, setFilterLocation] = React.useState('');
+  const [showInativos, setShowInativos] = React.useState(false);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Equipment | undefined>();
   const [statusModalEq, setStatusModalEq] = React.useState<Equipment | undefined>();
 
-  const families = uniqueFamilies(items);
+  const families = uniqueFamilies(items.filter((e) => e.ativo));
   const locations = Array.from(
-    new Set(items.map((e) => getEquipmentLocation(e.prefixo, allocations))),
+    new Set(items.filter((e) => e.ativo).map((e) => getEquipmentLocation(e.prefixo, allocations))),
   ).sort();
   const stats = computeFleetStats(items, allocations);
 
   const filtered = items.filter((e) => {
+    if (!showInativos && !e.ativo) return false;
     const location = getEquipmentLocation(e.prefixo, allocations);
     const term = search.toLowerCase();
     const matchesSearch =
@@ -55,8 +58,9 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
       e.descricao.toLowerCase().includes(term);
     return (
       matchesSearch &&
-      (!filterFamily || e.familia === filterFamily) &&
-      (!filterStatus || e.status === filterStatus) &&
+      (!filterFamily   || e.familia === filterFamily) &&
+      (!filterSituacao || e.situacao === filterSituacao) &&
+      (!filterStatus   || e.statusOperacional === filterStatus) &&
       (!filterLocation || location === filterLocation)
     );
   });
@@ -64,8 +68,10 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
   const clearFilters = () => {
     setSearch('');
     setFilterFamily('');
-    setFilterLocation('');
+    setFilterSituacao('');
     setFilterStatus('');
+    setFilterLocation('');
+    setShowInativos(false);
   };
 
   const handleSave = (eq: Equipment) => {
@@ -102,20 +108,20 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          label="Total Geral"
-          value={stats.total}
+          label="Total Ativo"
+          value={stats.totalAtivos}
           accentText="text-neutral"
           accentBorder="border-l-neutral"
-          footer="Mapeamento completo"
+          footer="Frota em operação"
         />
         <StatCard
-          label="Locados"
-          value={stats.locados}
+          label="Mobilizados"
+          value={stats.mobilizados}
           accentText="text-brand"
           accentBorder="border-l-brand"
           footer={
             <span className="bg-brand-light text-brand rounded-full px-2 py-0.5 text-[12px] font-medium leading-none">
-              {percentOfFleet(stats.locados, stats.total)}% da frota
+              {percentOfFleet(stats.mobilizados, stats.totalAtivos)}% da frota
             </span>
           }
         />
@@ -126,7 +132,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
           accentBorder="border-l-info"
           footer={
             <span className="bg-info-light text-info rounded-full px-2 py-0.5 text-[12px] font-medium leading-none">
-              {percentOfFleet(stats.disponiveis, stats.total)}% da frota
+              {percentOfFleet(stats.disponiveis, stats.totalAtivos)}% da frota
             </span>
           }
         />
@@ -137,7 +143,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
           accentBorder="border-l-warning"
           footer={
             <span className="bg-warning-light text-warning rounded-full px-2 py-0.5 text-[12px] font-medium leading-none">
-              {percentOfFleet(stats.manutencao, stats.total)}% da frota
+              {percentOfFleet(stats.manutencao, stats.totalAtivos)}% da frota
             </span>
           }
         />
@@ -155,7 +161,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
               className="w-full pl-[34px] pr-3 h-[42px] bg-white rounded-full border border-line outline-none text-[13px] font-medium transition-all focus:border-brand placeholder:text-gray-400 text-gray-900 shadow-sm"
             />
           </div>
-          <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto items-center">
             <FilterSelect
               value={filterFamily}
               onChange={setFilterFamily}
@@ -169,16 +175,43 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
               options={locations.map((l) => ({ value: l, label: l }))}
             />
             <FilterSelect
+              value={filterSituacao}
+              onChange={setFilterSituacao}
+              placeholder="Todas as Situações"
+              options={[
+                { value: 'Mobilizado',    label: 'Mobilizado' },
+                { value: 'Desmobilizado', label: 'Desmobilizado' },
+              ]}
+            />
+            <FilterSelect
               value={filterStatus}
               onChange={setFilterStatus}
               placeholder="Todos os Status"
               options={[
+                { value: 'Operação',   label: 'Operação' },
                 { value: 'Disponível', label: 'Disponível' },
-                { value: 'Locado', label: 'Locado' },
-                { value: 'Em Manutenção', label: 'Em Manutenção' },
-                { value: 'Vendido', label: 'Vendido' },
+                { value: 'Manutenção', label: 'Manutenção' },
               ]}
             />
+            {/* Toggle inativos */}
+            <button
+              type="button"
+              onClick={() => setShowInativos((v) => !v)}
+              title={showInativos ? 'Ocultar inativos' : 'Mostrar inativos'}
+              className={cn(
+                'inline-flex items-center gap-1.5 h-[42px] px-3 rounded-full border text-[12px] font-medium transition-colors shadow-sm shrink-0',
+                showInativos
+                  ? 'bg-red-50 border-red-200 text-red-500'
+                  : 'bg-white border-line text-gray-500 hover:bg-surface-muted',
+              )}
+            >
+              {showInativos ? 'Inativos visíveis' : 'Ver inativos'}
+              {stats.inativos > 0 && (
+                <span className="bg-red-100 text-red-500 rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none">
+                  {stats.inativos}
+                </span>
+              )}
+            </button>
             <button
               type="button"
               onClick={clearFilters}
@@ -198,10 +231,10 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
           <StateMessage>Nenhum equipamento encontrado.</StateMessage>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+            <table className="w-full text-left border-collapse min-w-[1100px]">
               <thead>
                 <tr className="bg-white">
-                  {['Prefixo', 'Equipamento', 'Ano', 'Localização', 'Valor Locação', 'Status'].map(
+                  {['Prefixo', 'Equipamento', 'Ano', 'Localização', 'Valor Locação', 'Situação', 'Status'].map(
                     (h) => (
                       <th
                         key={h}
@@ -219,9 +252,21 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((e) => {
                   const location = getEquipmentLocation(e.prefixo, allocations);
+                  const isInativo = !e.ativo;
                   return (
-                    <tr key={e.prefixo} className="hover:bg-brand-light transition-colors group">
-                      <td className="px-8 py-5 text-[13px] font-medium text-brand">{e.prefixo}</td>
+                    <tr
+                      key={e.prefixo}
+                      className={cn(
+                        'hover:bg-brand-light transition-colors group',
+                        isInativo && 'opacity-50',
+                      )}
+                    >
+                      <td className="px-8 py-5 text-[13px] font-medium text-brand">
+                        <div className="flex flex-col gap-1">
+                          <span>{e.prefixo}</span>
+                          {isInativo && <InativoBadge />}
+                        </div>
+                      </td>
                       <td className="px-8 py-5">
                         <div className="flex flex-col">
                           <span className="text-[13px] font-medium text-gray-900">{e.familia}</span>
@@ -246,7 +291,10 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
                         {formatCurrency(e.valorLocacao)}
                       </td>
                       <td className="px-8 py-5">
-                        <StatusBadge status={e.status} />
+                        <SituacaoBadge situacao={e.situacao} />
+                      </td>
+                      <td className="px-8 py-5">
+                        <StatusOperacionalBadge status={e.statusOperacional} />
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex items-center justify-center gap-2">
@@ -259,7 +307,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
                           </button>
                           <button
                             onClick={() => setStatusModalEq(e)}
-                            title="Alterar Status"
+                            title="Alterar Classificação"
                             className="w-7 h-7 border border-line rounded-md flex items-center justify-center bg-white cursor-pointer text-gray-500 hover:bg-surface-muted hover:text-brand transition-all"
                           >
                             <ArrowRightLeft size={14} />
@@ -292,9 +340,8 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
       {statusModalEq && (
         <StatusUpdateModal
           equipment={statusModalEq}
-          onSave={(status) => {
-            void equipments.update(statusModalEq.prefixo, { ...statusModalEq, status });
-            setStatusModalEq(undefined);
+          onSave={(patch) => {
+            void equipments.update(statusModalEq.prefixo, { ...statusModalEq, ...patch });
           }}
           onClose={() => setStatusModalEq(undefined)}
         />

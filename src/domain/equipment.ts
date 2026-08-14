@@ -1,4 +1,4 @@
-import { Equipment, Allocation, EquipmentStatus } from '../types';
+import { Equipment, Allocation } from '../types';
 import { HOME_BASE } from '../config/theme';
 
 /**
@@ -21,27 +21,25 @@ export function getEquipmentLocation(
 }
 
 export interface FleetStats {
-  total: number;
-  locados: number;
+  totalAtivos: number;
+  mobilizados: number;
   disponiveis: number;
   manutencao: number;
-  planejados: number;
+  inativos: number;
 }
 
 /** Contagens agregadas da frota, usadas nos cards de indicadores. */
 export function computeFleetStats(
   equipments: Equipment[],
-  allocations: Allocation[],
+  _allocations: Allocation[],
 ): FleetStats {
-  const countByStatus = (status: EquipmentStatus) =>
-    equipments.filter((e) => e.status === status).length;
-
+  const ativos = equipments.filter((e) => e.ativo);
   return {
-    total: equipments.length,
-    locados: countByStatus('Locado'),
-    disponiveis: countByStatus('Disponível'),
-    manutencao: countByStatus('Em Manutenção'),
-    planejados: allocations.filter((a) => a.statusAlocacao === 'Planejado').length,
+    totalAtivos: ativos.length,
+    mobilizados: ativos.filter((e) => e.situacao === 'Mobilizado').length,
+    disponiveis: ativos.filter((e) => e.statusOperacional === 'Disponível').length,
+    manutencao:  ativos.filter((e) => e.statusOperacional === 'Manutenção').length,
+    inativos:    equipments.filter((e) => !e.ativo).length,
   };
 }
 

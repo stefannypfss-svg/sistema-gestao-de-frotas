@@ -9,7 +9,7 @@ interface WorkModalProps {
   onClose: () => void;
 }
 
-const EMPTY: Work = { id: '', nome: '', cliente: '', status: 'Ativa', observacoes: '' };
+const EMPTY: Work = { id: '', nome: '', abreviacao: '', cliente: '', status: 'Ativa', observacoes: '' };
 
 export const WorkModal: React.FC<WorkModalProps> = ({ work, onSave, onClose }) => {
   const [form, setForm] = React.useState<Work>(work ?? EMPTY);
@@ -33,6 +33,13 @@ export const WorkModal: React.FC<WorkModalProps> = ({ work, onSave, onClose }) =
             value={form.nome}
             onChange={(e) => set({ nome: e.target.value })}
             placeholder="Ex: Rodoanel Pista Norte"
+          />
+        </FormField>
+        <FormField label="Abreviação">
+          <Input
+            value={form.abreviacao}
+            onChange={(e) => set({ abreviacao: e.target.value.toUpperCase() })}
+            placeholder="Ex: RDNL-N"
           />
         </FormField>
         <FormField label="Cliente">

@@ -25,7 +25,7 @@ import {
   uniqueFamilies,
 } from '../../domain/equipment';
 import { Collection } from '../../hooks/useCollection';
-import { StatusBadge } from '../../components/StatusBadge';
+import { SituacaoBadge } from '../../components/StatusBadge';
 import {
   PageHeader,
   Button,
@@ -129,9 +129,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label="Locados" value={stats.locados} accentText="text-brand" accentBorder="border-l-brand" footer="Equipamentos em operação" />
+        <StatCard label="Mobilizados" value={stats.mobilizados} accentText="text-brand" accentBorder="border-l-brand" footer="Equipamentos em obra" />
         <StatCard label="Disponíveis" value={stats.disponiveis} accentText="text-info" accentBorder="border-l-info" footer="Prontos para alocação" />
-        <StatCard label="Planejados" value={stats.planejados} accentText="text-planned" accentBorder="border-l-planned" footer="Alocações programadas" />
+        <StatCard label="Planejados" value={allocItems.filter((a) => a.statusAlocacao === 'Planejado').length} accentText="text-planned" accentBorder="border-l-planned" footer="Alocações programadas" />
         <StatCard label="Em Manutenção" value={stats.manutencao} accentText="text-warning" accentBorder="border-l-warning" footer="Fora de serviço temporariamente" />
       </div>
 
@@ -237,7 +237,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                                 </div>
                                 <span className="text-[11px] text-gray-400 leading-tight">{eq.descricao}</span>
                                 <div className="flex mt-1">
-                                  <StatusBadge status={eq.status} className="scale-90 origin-left" />
+                                  <SituacaoBadge situacao={eq.situacao} className="scale-90 origin-left" />
                                 </div>
                               </div>
                             </td>

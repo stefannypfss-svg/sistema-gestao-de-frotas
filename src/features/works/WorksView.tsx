@@ -56,7 +56,7 @@ export const WorksView: React.FC<WorksViewProps> = ({ works }) => {
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-white border-b border-gray-100">
-                  {['Nome da Obra', 'Cliente', 'Status', 'Observações'].map((h) => (
+                  {['Nome da Obra', 'Abreviação', 'Cliente', 'Status', 'Observações'].map((h) => (
                     <th
                       key={h}
                       className="px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em]"
@@ -73,6 +73,7 @@ export const WorksView: React.FC<WorksViewProps> = ({ works }) => {
                 {items.map((w) => (
                   <tr key={w.id} className="hover:bg-brand-light transition-colors group">
                     <td className="px-8 py-4 text-[14px] font-medium text-brand">{w.nome}</td>
+                    <td className="px-8 py-4 text-[12px] font-mono font-semibold text-gray-700">{w.abreviacao || '—'}</td>
                     <td className="px-8 py-4 text-[13px] text-gray-500">{w.cliente || '—'}</td>
                     <td className="px-8 py-4">
                       <span
