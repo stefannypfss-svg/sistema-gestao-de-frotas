@@ -225,6 +225,8 @@ export function TechnicalDataView({ equipments }: Props) {
                     <Th label="Modelo" field="modelo" />
                     <Th label="Ano" field="ano" />
                     <Th label="Info Implemento" />
+                    <Th label="Seguro" field="seguro" />
+                    <Th label="Rastreador" field="rastreador" />
                   </>
                 )}
 
@@ -299,6 +301,8 @@ export function TechnicalDataView({ equipments }: Props) {
                         <Cell value={e.modelo} mono />
                         <Cell value={e.ano} />
                         <Cell value={e.infoImplemento} />
+                        <Cell value={e.seguro} />
+                        <Cell value={e.rastreador} />
                       </>
                     )}
 
