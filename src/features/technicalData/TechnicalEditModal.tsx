@@ -147,6 +147,12 @@ export function TechnicalEditModal({ equipment, onSave, onClose }: Props) {
             <Field label="Info do Implemento">
               <Input value={form.infoImplemento ?? ''} onChange={(v) => set({ infoImplemento: v })} placeholder="Ex: 6.000 Litros" />
             </Field>
+            <Field label="Seguro">
+              <Input value={form.seguro ?? ''} onChange={(v) => set({ seguro: v })} placeholder="Ex: Porto Seguro, Bradesco..." />
+            </Field>
+            <Field label="Rastreador">
+              <Input value={form.rastreador ?? ''} onChange={(v) => set({ rastreador: v })} placeholder="Ex: Sascar, Onixsat..." />
+            </Field>
           </div>
         )}
 

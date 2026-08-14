@@ -46,6 +46,8 @@ export interface Equipment {
   acao?: string;
   previsaoMobilizacao?: string;
   obs?: string;
+  seguro?: string;
+  rastreador?: string;
 }
 
 export type AllocationType = 'Atual' | 'Previsto';
