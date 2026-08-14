@@ -9,11 +9,12 @@ import { WorksView } from './features/works/WorksView';
 import { PlanningView } from './features/planning/PlanningView';
 import { ForecastView } from './features/forecast/ForecastView';
 import { TechnicalDataView } from './features/technicalData/TechnicalDataView';
+import { EquipamentoObraView } from './features/equipamentoObra/EquipamentoObraView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
   const [activeTab, setActiveTab] = React.useState<TabId>('equipamentos');
-  const { equipments, works, allocations, isLoading } = useStore();
+  const { equipments, works, allocations, equipamentoObra, isLoading } = useStore();
   const { logout } = useAuth();
 
   if (isLoading) {
@@ -48,6 +49,13 @@ function AppShell() {
             )}
             {activeTab === 'dados-tecnicos' && (
               <TechnicalDataView equipments={equipments} />
+            )}
+            {activeTab === 'equip-por-obra' && (
+              <EquipamentoObraView
+                registros={equipamentoObra}
+                equipments={equipments}
+                works={works.items}
+              />
             )}
             {activeTab === 'obras' && <WorksView works={works} />}
             {activeTab === 'planejamento' && (

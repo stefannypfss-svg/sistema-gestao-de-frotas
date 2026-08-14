@@ -17,6 +17,14 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    match /equipamento_obra/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /_meta/{id} {
+      allow read, write: if request.auth != null;
+    }
+
     // Nega qualquer outra coleção por padrão.
     match /{document=**} {
       allow read, write: if false;

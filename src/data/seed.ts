@@ -1,15 +1,19 @@
 import { Equipment, Work } from "../types";
 
 export const INITIAL_WORKS: Work[] = [
-  { id: "1", nome: "Dom Inocêncio", abreviacao: "", cliente: "", status: "Ativa", observacoes: "" },
-  { id: "2", nome: "Babilônia Solar", abreviacao: "", cliente: "", status: "Ativa", observacoes: "" },
-  { id: "3", nome: "Babilônia Centro", abreviacao: "", cliente: "", status: "Ativa", observacoes: "" },
-  { id: "4", nome: "Britageo - Caucaia - CE", abreviacao: "", cliente: "Britageo", status: "Ativa", observacoes: "" },
-  { id: "5", nome: "Pedra de Amolar e Paraíso Farol", abreviacao: "", cliente: "", status: "Ativa", observacoes: "" },
-  { id: "6", nome: "Passareli - Cinturão das Águas do Ceará L4 - Ceará", abreviacao: "", cliente: "Passareli", status: "Ativa", observacoes: "" },
-  { id: "7", nome: "Alliance", abreviacao: "", cliente: "Alliance", status: "Ativa", observacoes: "" },
-  { id: "8", nome: "Teci Infraestrutura - Fortaleza - CE", abreviacao: "", cliente: "Teci", status: "Ativa", observacoes: "" },
-  { id: "9", nome: "Cortez - Itarema - CE", abreviacao: "", cliente: "Cortez", status: "Ativa", observacoes: "" },
+  { id: "1",  nome: "Dom Inocêncio",                                          abreviacao: "EDI",    cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "2",  nome: "Babilônia Solar",                                         abreviacao: "",       cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "3",  nome: "Babilônia Centro",                                        abreviacao: "",       cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "4",  nome: "Britageo - Caucaia - CE",                                 abreviacao: "",       cliente: "Britageo",  status: "Ativa", observacoes: "" },
+  { id: "5",  nome: "Pedra de Amolar e Paraíso Farol",                         abreviacao: "",       cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "6",  nome: "Passareli - Cinturão das Águas do Ceará L4 - Ceará",      abreviacao: "",       cliente: "Passareli", status: "Ativa", observacoes: "" },
+  { id: "7",  nome: "Alliance",                                                abreviacao: "ALL",    cliente: "Alliance",  status: "Ativa", observacoes: "" },
+  { id: "8",  nome: "Teci Infraestrutura - Fortaleza - CE",                    abreviacao: "",       cliente: "Teci",      status: "Ativa", observacoes: "" },
+  { id: "9",  nome: "Cortez - Itarema - CE",                                   abreviacao: "CTZ-ITA",cliente: "Cortez",    status: "Ativa", observacoes: "" },
+  { id: "10", nome: "Esquina dos Ventos",                                       abreviacao: "EDV",    cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "11", nome: "Central de Equipamentos Rental",                           abreviacao: "CER",    cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "12", nome: "Nortcom",                                                 abreviacao: "NORT",   cliente: "",          status: "Ativa", observacoes: "" },
+  { id: "13", nome: "Manutenção Terceirizada",                                  abreviacao: "OUTROS", cliente: "",          status: "Ativa", observacoes: "" },
 ];
 
 export const INITIAL_EQUIPMENT: Equipment[] = [

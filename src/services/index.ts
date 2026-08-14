@@ -7,7 +7,7 @@
  *
  * Trocar de backend = trocar as instâncias abaixo. Nada mais no app muda.
  */
-import { Equipment, Work, Allocation } from '../types';
+import { Equipment, Work, Allocation, EquipamentoObra } from '../types';
 import { Repository } from './repository';
 import { LocalStorageRepository } from './localStorageRepository';
 import { FirestoreRepository } from './firestoreRepository';
@@ -19,6 +19,7 @@ const COLLECTIONS = {
   equipment: 'equipamentos',
   works: 'obras',
   allocations: 'alocacoes',
+  equipamentoObra: 'equipamento_obra',
 } as const;
 
 /** Incrementar força o re-seed do localStorage de equipamentos. */
@@ -30,13 +31,24 @@ if (localStorage.getItem(LS_VERSION_KEY) !== LS_EQUIPMENT_VERSION) {
   localStorage.setItem(LS_VERSION_KEY, LS_EQUIPMENT_VERSION);
 }
 
+/** Incrementar força o re-seed do localStorage de equipamento-por-obra. */
+const LS_EQUIP_OBRA_VERSION = '2-location-names';
+const LS_EQUIP_OBRA_VERSION_KEY = 'cortez_equip_obra_version';
+
+if (localStorage.getItem(LS_EQUIP_OBRA_VERSION_KEY) !== LS_EQUIP_OBRA_VERSION) {
+  localStorage.removeItem('cortez_equip_obra');
+  localStorage.setItem(LS_EQUIP_OBRA_VERSION_KEY, LS_EQUIP_OBRA_VERSION);
+}
+
 const getEquipmentKey = (e: Equipment) => e.prefixo;
 const getWorkKey = (w: Work) => w.id;
 const getAllocationKey = (a: Allocation) => a.id;
+const getEquipObraKey = (r: EquipamentoObra) => r.id;
 
 let equipmentRepository: Repository<Equipment>;
 let workRepository: Repository<Work>;
 let allocationRepository: Repository<Allocation>;
+let equipamentoObraRepository: Repository<EquipamentoObra>;
 
 if (isFirebaseConfigured) {
   equipmentRepository = new FirestoreRepository<Equipment>(
@@ -49,6 +61,11 @@ if (isFirebaseConfigured) {
     db,
     COLLECTIONS.allocations,
     getAllocationKey,
+  );
+  equipamentoObraRepository = new FirestoreRepository<EquipamentoObra>(
+    db,
+    COLLECTIONS.equipamentoObra,
+    getEquipObraKey,
   );
 
   // Semeia uma única vez (idempotente). Não bloqueia a renderização.
@@ -76,6 +93,27 @@ if (isFirebaseConfigured) {
     getAllocationKey,
     [],
   );
+  equipamentoObraRepository = new LocalStorageRepository<EquipamentoObra>(
+    'cortez_equip_obra',
+    getEquipObraKey,
+    INITIAL_EQUIPMENT.map((e) => {
+      const LOCATION_TO_OBRA: Record<string, string> = {
+        'EDI':           'Dom Inocêncio',
+        'EDV':           'Esquina dos Ventos',
+        'CER':           'Central de Equipamentos Rental',
+        'ALI':           'Alliance',
+        'NORTCOM':       'Nortcom',
+        'SP-MANUTENÇÃO': 'Manutenção Terceirizada',
+        'CTZ-ITA':       'Cortez - Itarema - CE',
+      };
+      return {
+        id: e.prefixo,
+        prefixo: e.prefixo,
+        obra: LOCATION_TO_OBRA[e.localizacaoAtual] ?? e.localizacaoAtual,
+        situacao: e.situacao,
+      };
+    }),
+  );
 }
 
-export { equipmentRepository, workRepository, allocationRepository };
+export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository };
