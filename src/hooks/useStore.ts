@@ -1,4 +1,5 @@
 import { useCollection } from './useCollection';
+import { useAuth } from './useAuth';
 import {
   equipmentRepository,
   workRepository,
@@ -12,9 +13,12 @@ import {
  * (`create`/`update`/`remove`). A origem dos dados é definida em `services/`.
  */
 export function useStore() {
-  const equipments = useCollection(equipmentRepository);
-  const works = useCollection(workRepository);
-  const allocations = useCollection(allocationRepository);
+  const { user } = useAuth();
+  const userLabel = user?.displayName || user?.email || 'Sistema';
+
+  const equipments = useCollection(equipmentRepository, userLabel);
+  const works = useCollection(workRepository, userLabel);
+  const allocations = useCollection(allocationRepository, userLabel);
 
   return {
     equipments,

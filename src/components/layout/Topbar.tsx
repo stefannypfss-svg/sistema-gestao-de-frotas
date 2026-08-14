@@ -1,8 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Filter, LogOut, X } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
 import { TabId, TABS } from '../../config/navigation';
+import { useLastChange } from '../../hooks/useLastChange';
 
 const LOGO_URL = '/logo.svg';
 
@@ -14,6 +17,11 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const lastChange = useLastChange();
+
+  const lastChangeLabel = lastChange
+    ? `${format(parseISO(lastChange.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} · ${lastChange.userName}`
+    : null;
 
   return (
     <nav className="fixed top-0 left-0 right-0 h-[52px] bg-white border-b border-gray-200 z-50 px-8">
@@ -58,13 +66,17 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogou
           ))}
         </div>
 
-        {/* Status pill */}
+        {/* Última alteração */}
         <div className="hidden md:flex items-center gap-[6px] bg-brand-light border border-brand-border rounded-full px-3 py-1 text-[12px] text-brand">
           <div className="relative w-1.5 h-1.5 shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-brand" />
             <div className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-brand animate-ping" />
           </div>
-          <span className="font-medium">Status do Pátio: Operacional</span>
+          {lastChangeLabel ? (
+            <span className="font-medium">Última Alteração: {lastChangeLabel}</span>
+          ) : (
+            <span className="font-medium text-gray-400">Nenhuma alteração registrada</span>
+          )}
         </div>
 
         {onLogout && (

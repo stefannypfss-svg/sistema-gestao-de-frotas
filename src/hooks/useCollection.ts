@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Repository } from '../services/repository';
+import { recordChange } from '../lib/lastChange';
 
 export interface Collection<T> {
   items: T[];
@@ -16,7 +17,7 @@ export interface Collection<T> {
  * assíncronas. Toda view consome coleções por aqui, sem conhecer a origem dos
  * dados (localStorage hoje, API amanhã).
  */
-export function useCollection<T>(repository: Repository<T>): Collection<T> {
+export function useCollection<T>(repository: Repository<T>, userLabel?: string): Collection<T> {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,26 +61,28 @@ export function useCollection<T>(repository: Repository<T>): Collection<T> {
   const create = useCallback(
     async (item: T) => {
       const saved = await repository.create(item);
-      // No modo tempo real o snapshot atualiza o estado; evita item duplicado.
       if (!isLive) setItems((prev) => [...prev, saved]);
+      if (userLabel) recordChange(userLabel);
     },
-    [repository, isLive],
+    [repository, isLive, userLabel],
   );
 
   const update = useCallback(
     async (id: string, item: T) => {
       const saved = await repository.update(id, item);
       if (!isLive) setItems((prev) => prev.map((i) => (matchesId(i, id) ? saved : i)));
+      if (userLabel) recordChange(userLabel);
     },
-    [repository, isLive],
+    [repository, isLive, userLabel],
   );
 
   const remove = useCallback(
     async (id: string) => {
       await repository.remove(id);
       if (!isLive) setItems((prev) => prev.filter((i) => !matchesId(i, id)));
+      if (userLabel) recordChange(userLabel);
     },
-    [repository, isLive],
+    [repository, isLive, userLabel],
   );
 
   return { items, loading, error, create, update, remove, reload };
