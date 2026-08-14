@@ -15,11 +15,14 @@ export interface Equipment {
   grupoEquipamento: string;
   familia: string;
   descricao: string;
+  marca?: string;
   modelo: string;
   franquia: number;
   valorLocacao: number;
   ano: string;
+  infoImplemento?: string;
   placa: string;
+  renavam?: string;
   chassi: string;
   localizacaoAtual: string;
   /** Mobilizado = em obra · Desmobilizado = na base */
@@ -28,6 +31,21 @@ export interface Equipment {
   statusOperacional: StatusOperacional;
   /** false = equipamento desativado (vendido, baixado, sucateado) */
   ativo: boolean;
+  // Dados técnicos / financeiros (importados da planilha)
+  statusGeral?: string;
+  tipoContrato?: string;
+  empresaAquisidora?: string;
+  valorCompra?: number;
+  fornecedor?: string;
+  nNotaFiscal?: string;
+  dataCompra?: string;
+  valorAnuncioVenda?: number;
+  tempoDepreciacao?: number;
+  valorMercado?: number;
+  previsaoLiberacao?: string;
+  acao?: string;
+  previsaoMobilizacao?: string;
+  obs?: string;
 }
 
 export type AllocationType = 'Atual' | 'Previsto';

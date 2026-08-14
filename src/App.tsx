@@ -8,6 +8,7 @@ import { EquipmentsView } from './features/equipments/EquipmentsView';
 import { WorksView } from './features/works/WorksView';
 import { PlanningView } from './features/planning/PlanningView';
 import { ForecastView } from './features/forecast/ForecastView';
+import { TechnicalDataView } from './features/technicalData/TechnicalDataView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
@@ -44,6 +45,9 @@ function AppShell() {
           >
             {activeTab === 'equipamentos' && (
               <EquipmentsView equipments={equipments} allocations={allocations.items} />
+            )}
+            {activeTab === 'dados-tecnicos' && (
+              <TechnicalDataView equipments={equipments} />
             )}
             {activeTab === 'obras' && <WorksView works={works} />}
             {activeTab === 'planejamento' && (
