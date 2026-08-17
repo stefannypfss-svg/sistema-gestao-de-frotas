@@ -97,5 +97,14 @@ export interface EquipamentoObra {
   observacao?: string;
 }
 
+/** Valor de locação de uma descrição de equipamento em uma obra específica. */
+export interface TabelaLocacao {
+  /** ID estável derivado de `${descricao}||${obra}`. */
+  id: string;
+  descricao: string;
+  obra: string;
+  valor: number;
+}
+
 /** Entidades que possuem identificador único. */
 export type Identifiable = Equipment | Work | Allocation;

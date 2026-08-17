@@ -9,14 +9,17 @@ import {
   setDoc,
   Firestore,
 } from 'firebase/firestore';
-import { Allocation, EquipamentoObra } from '../types';
+import { Allocation, EquipamentoObra, TabelaLocacao } from '../types';
 import { INITIAL_EQUIPMENT, INITIAL_WORKS } from '../data/seed';
+import { buildTabelaLocacaoSeed } from '../data/tabelaLocacaoSeed';
 import { HOME_BASE } from '../config/theme';
 
 /** Incrementar este valor força o re-seed de equipamentos no próximo startup. */
 const EQUIPMENT_SEED_VERSION = '4-clean-reseed';
 /** Incrementar força o re-seed de equipamento-por-obra. */
 const EQUIP_OBRA_SEED_VERSION = '2-location-names';
+/** Incrementar força o re-seed da tabela de locação. */
+const TABELA_LOCACAO_SEED_VERSION = '1-valores-edi-edv';
 
 /**
  * Alocações iniciais derivadas dos equipamentos locados fora da base.
@@ -107,6 +110,20 @@ async function setEquipObraSeedVersion(db: Firestore, version: string): Promise<
   await setDoc(doc(db, '_meta', 'seedVersion'), { equipamentoObra: version }, { merge: true });
 }
 
+async function getTabelaLocacaoSeedVersion(db: Firestore): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, '_meta', 'seedVersion'));
+    if (!snap.exists()) return null;
+    return (snap.data()?.tabelaLocacao as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setTabelaLocacaoSeedVersion(db: Firestore, version: string): Promise<void> {
+  await setDoc(doc(db, '_meta', 'seedVersion'), { tabelaLocacao: version }, { merge: true });
+}
+
 const LOCATION_TO_OBRA: Record<string, string> = {
   'EDI':           'Dom Inocêncio',
   'EDV':           'Esquina dos Ventos',
@@ -132,7 +149,7 @@ function buildInitialEquipamentoObra(): EquipamentoObra[] {
  */
 export async function seedFirestore(
   db: Firestore,
-  collections: { equipment: string; works: string; allocations: string; equipamentoObra: string },
+  collections: { equipment: string; works: string; allocations: string; equipamentoObra: string; tabelaLocacao: string },
 ): Promise<void> {
   const storedVersion = await getEquipmentSeedVersion(db);
   const needsEquipmentSeed = storedVersion !== EQUIPMENT_SEED_VERSION;
@@ -165,5 +182,11 @@ export async function seedFirestore(
     await clearCollection(db, collections.equipamentoObra);
     await seedCollection(db, collections.equipamentoObra, buildInitialEquipamentoObra(), (r) => r.id);
     await setEquipObraSeedVersion(db, EQUIP_OBRA_SEED_VERSION);
+  }
+  const storedTabelaLocacaoVersion = await getTabelaLocacaoSeedVersion(db);
+  if (storedTabelaLocacaoVersion !== TABELA_LOCACAO_SEED_VERSION) {
+    await clearCollection(db, collections.tabelaLocacao);
+    await seedCollection<TabelaLocacao>(db, collections.tabelaLocacao, buildTabelaLocacaoSeed(), (t) => t.id);
+    await setTabelaLocacaoSeedVersion(db, TABELA_LOCACAO_SEED_VERSION);
   }
 }

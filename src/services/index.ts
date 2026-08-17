@@ -7,7 +7,7 @@
  *
  * Trocar de backend = trocar as instâncias abaixo. Nada mais no app muda.
  */
-import { Equipment, Work, Allocation, EquipamentoObra } from '../types';
+import { Equipment, Work, Allocation, EquipamentoObra, TabelaLocacao } from '../types';
 import { Repository } from './repository';
 import { LocalStorageRepository } from './localStorageRepository';
 import { FirestoreRepository } from './firestoreRepository';
@@ -20,6 +20,7 @@ const COLLECTIONS = {
   works: 'obras',
   allocations: 'alocacoes',
   equipamentoObra: 'equipamento_obra',
+  tabelaLocacao: 'tabela_locacao',
 } as const;
 
 /** Incrementar força o re-seed do localStorage de equipamentos. */
@@ -44,11 +45,13 @@ const getEquipmentKey = (e: Equipment) => e.prefixo;
 const getWorkKey = (w: Work) => w.id;
 const getAllocationKey = (a: Allocation) => a.id;
 const getEquipObraKey = (r: EquipamentoObra) => r.id;
+const getTabelaLocacaoKey = (t: TabelaLocacao) => t.id;
 
 let equipmentRepository: Repository<Equipment>;
 let workRepository: Repository<Work>;
 let allocationRepository: Repository<Allocation>;
 let equipamentoObraRepository: Repository<EquipamentoObra>;
+let tabelaLocacaoRepository: Repository<TabelaLocacao>;
 
 if (isFirebaseConfigured) {
   equipmentRepository = new FirestoreRepository<Equipment>(
@@ -66,6 +69,11 @@ if (isFirebaseConfigured) {
     db,
     COLLECTIONS.equipamentoObra,
     getEquipObraKey,
+  );
+  tabelaLocacaoRepository = new FirestoreRepository<TabelaLocacao>(
+    db,
+    COLLECTIONS.tabelaLocacao,
+    getTabelaLocacaoKey,
   );
 
   // Semeia uma única vez (idempotente). Não bloqueia a renderização.
@@ -93,6 +101,11 @@ if (isFirebaseConfigured) {
     getAllocationKey,
     [],
   );
+  tabelaLocacaoRepository = new LocalStorageRepository<TabelaLocacao>(
+    'cortez_tabela_locacao',
+    getTabelaLocacaoKey,
+    [],
+  );
   equipamentoObraRepository = new LocalStorageRepository<EquipamentoObra>(
     'cortez_equip_obra',
     getEquipObraKey,
@@ -116,4 +129,4 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository };
+export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository, tabelaLocacaoRepository };
