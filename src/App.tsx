@@ -10,11 +10,12 @@ import { ForecastView } from './features/forecast/ForecastView';
 import { TechnicalDataView } from './features/technicalData/TechnicalDataView';
 import { EquipamentoObraView } from './features/equipamentoObra/EquipamentoObraView';
 import { DashboardView } from './features/dashboard/DashboardView';
+import { TabelaLocacaoView } from './features/tabelaLocacao/TabelaLocacaoView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
   const [activeTab, setActiveTab] = React.useState<TabId>('dashboard');
-  const { equipments, works, allocations, equipamentoObra, isLoading } = useStore();
+  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, isLoading } = useStore();
   const { logout } = useAuth();
 
   if (isLoading) {
@@ -71,8 +72,17 @@ function AppShell() {
             {activeTab === 'previsao' && (
               <ForecastView
                 equipments={equipments.items}
-                allocations={allocations.items}
+                equipamentoObra={equipamentoObra.items}
+                tabelaLocacao={tabelaLocacao.items}
                 works={works.items}
+              />
+            )}
+            {activeTab === 'tabela-locacao' && (
+              <TabelaLocacaoView
+                equipments={equipments}
+                works={works}
+                tabelaLocacao={tabelaLocacao}
+                equipamentoObra={equipamentoObra}
               />
             )}
           </motion.div>

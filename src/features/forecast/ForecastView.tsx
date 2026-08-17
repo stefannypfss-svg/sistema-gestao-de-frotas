@@ -2,15 +2,16 @@ import React from 'react';
 import { Download, Filter, Building2, Clock, Percent, Eraser } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Equipment, Allocation, Work } from '../../types';
+import { Equipment, EquipamentoObra, TabelaLocacao, Work } from '../../types';
 import { cn, formatCurrency } from '../../lib/utils';
 import { uniqueFamilies } from '../../domain/equipment';
-import { computeForecast } from '../../domain/forecast';
+import { computeForecastFromEquipObra } from '../../domain/forecast';
 import { PageHeader, Button, Card, FilterSelect } from '../../components/ui';
 
 interface ForecastViewProps {
   equipments: Equipment[];
-  allocations: Allocation[];
+  equipamentoObra: EquipamentoObra[];
+  tabelaLocacao: TabelaLocacao[];
   works: Work[];
 }
 
@@ -18,11 +19,11 @@ const EFFICIENCY_OPTIONS = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50];
 
 export const ForecastView: React.FC<ForecastViewProps> = ({
   equipments,
-  allocations,
+  equipamentoObra,
+  tabelaLocacao,
   works,
 }) => {
   const [period, setPeriod] = React.useState(12);
-  const [filterType, setFilterType] = React.useState('Todos');
   const [filterObra, setFilterObra] = React.useState('');
   const [filterFamily, setFilterFamily] = React.useState('');
   const [efficiency, setEfficiency] = React.useState(100);
@@ -30,19 +31,18 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   const obras = works.map((w) => w.nome).sort();
   const families = uniqueFamilies(equipments);
 
-  const { months, rows, monthlyTotals } = computeForecast(equipments, allocations, {
-    period,
-    filterType,
-    filterObra,
-    filterFamily,
-  });
+  const { months, rows, monthlyTotals } = computeForecastFromEquipObra(
+    equipments,
+    equipamentoObra,
+    tabelaLocacao,
+    { period, filterObra, filterFamily },
+  );
 
   const effectiveTotals = monthlyTotals.map((t) => (t * efficiency) / 100);
   const grandTotal = effectiveTotals.reduce((sum, v) => sum + v, 0);
 
   const clearFilters = () => {
     setPeriod(12);
-    setFilterType('Todos');
     setFilterObra('');
     setFilterFamily('');
     setEfficiency(100);
@@ -98,17 +98,6 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               onChange={setFilterObra}
               placeholder="Todas as Obras"
               options={obras.map((o) => ({ value: o, label: o }))}
-            />
-          </ForecastFilter>
-          <ForecastFilter label="Tipo" icon={Filter}>
-            <FilterSelect
-              value={filterType}
-              onChange={setFilterType}
-              options={[
-                { value: 'Todos', label: 'Todas' },
-                { value: 'Atual', label: 'Status Atual' },
-                { value: 'Previsto', label: 'Previsto' },
-              ]}
             />
           </ForecastFilter>
           <ForecastFilter label="Família" icon={Filter}>
