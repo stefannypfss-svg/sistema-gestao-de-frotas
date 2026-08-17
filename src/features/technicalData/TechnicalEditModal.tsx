@@ -4,10 +4,17 @@ import { Modal, Button } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
 interface Props {
-  equipment: Equipment;
+  equipment?: Equipment;
   onSave: (e: Equipment) => void;
   onClose: () => void;
 }
+
+const EMPTY_EQUIPMENT: Equipment = {
+  prefixo: '', grupo: '', grupoEquipamento: '', familia: '',
+  descricao: '', marca: '', modelo: '', franquia: 0, valorLocacao: 0,
+  ano: '', placa: '', chassi: '', localizacaoAtual: 'Central de Equipamentos Rental',
+  situacao: 'Desmobilizado', statusOperacional: 'Disponível', ativo: true,
+};
 
 type Tab = 'identificacao' | 'documentacao' | 'financeiro' | 'operacional';
 const TABS: { key: Tab; label: string }[] = [
@@ -77,7 +84,8 @@ function Sel({
 }
 
 export function TechnicalEditModal({ equipment, onSave, onClose }: Props) {
-  const [form, setForm] = useState<Equipment>({ ...equipment });
+  const isNew = !equipment;
+  const [form, setForm] = useState<Equipment>(equipment ?? { ...EMPTY_EQUIPMENT });
   const [tab, setTab] = useState<Tab>('identificacao');
 
   function set(patch: Partial<Equipment>) {
@@ -85,14 +93,15 @@ export function TechnicalEditModal({ equipment, onSave, onClose }: Props) {
   }
 
   function handleSave() {
+    if (!form.prefixo.trim()) { alert('Informe o prefixo do equipamento.'); return; }
     onSave(form);
     onClose();
   }
 
   return (
     <Modal
-      title={`Editar ${equipment.prefixo}`}
-      subtitle={equipment.descricao}
+      title={isNew ? 'Novo Equipamento' : `Editar ${form.prefixo}`}
+      subtitle={isNew ? 'Preencha os dados do novo equipamento' : form.descricao}
       onClose={onClose}
       maxWidth="max-w-3xl"
     >
@@ -119,7 +128,7 @@ export function TechnicalEditModal({ equipment, onSave, onClose }: Props) {
         {tab === 'identificacao' && (
           <div className="grid grid-cols-2 gap-4">
             <Field label="Prefixo">
-              <Input value={form.prefixo} onChange={(v) => set({ prefixo: v })} readOnly />
+              <Input value={form.prefixo} onChange={(v) => set({ prefixo: v.toUpperCase() })} placeholder="Ex: CAM01" readOnly={!isNew} />
             </Field>
             <Field label="Grupo">
               <Input value={form.grupo} onChange={(v) => set({ grupo: v })} placeholder="A, C Inácio..." />

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Pencil, Trash2, Plus } from 'lucide-react';
 import { Equipment } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { cn } from '../../lib/utils';
@@ -88,6 +88,7 @@ export function TechnicalDataView({ equipments }: Props) {
   const [sortField, setSortField] = useState<keyof Equipment>('prefixo');
   const [sortAsc, setSortAsc] = useState(true);
   const [editing, setEditing] = useState<Equipment | null>(null);
+  const [creating, setCreating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const items = equipments.items;
@@ -127,7 +128,16 @@ export function TechnicalDataView({ equipments }: Props) {
   }
 
   async function handleSave(updated: Equipment) {
-    await equipments.update(updated.prefixo, updated);
+    if (creating) {
+      if (items.some((e) => e.prefixo === updated.prefixo)) {
+        alert('Prefixo já cadastrado!');
+        return;
+      }
+      await equipments.create(updated);
+      setCreating(false);
+    } else {
+      await equipments.update(updated.prefixo, updated);
+    }
   }
 
   async function handleDelete(prefixo: string) {
@@ -165,6 +175,13 @@ export function TechnicalDataView({ equipments }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
+          <button
+            onClick={() => { setEditing(null); setCreating(true); }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-[13px] font-semibold rounded-xl hover:bg-brand/90 transition-colors"
+          >
+            <Plus size={14} />
+            Novo Equipamento
+          </button>
           <div className="relative w-full md:w-72">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -423,12 +440,12 @@ export function TechnicalDataView({ equipments }: Props) {
         </div>
       </div>
 
-      {/* Modal de edição */}
-      {editing && (
+      {/* Modal editar / criar */}
+      {(editing || creating) && (
         <TechnicalEditModal
-          equipment={editing}
+          equipment={editing ?? undefined}
           onSave={handleSave}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); setCreating(false); }}
         />
       )}
     </div>

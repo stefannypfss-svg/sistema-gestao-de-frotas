@@ -4,16 +4,16 @@ import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
 import { TabId } from './config/navigation';
 import { Topbar } from './components/layout/Topbar';
-import { EquipmentsView } from './features/equipments/EquipmentsView';
 import { WorksView } from './features/works/WorksView';
 import { PlanningView } from './features/planning/PlanningView';
 import { ForecastView } from './features/forecast/ForecastView';
 import { TechnicalDataView } from './features/technicalData/TechnicalDataView';
 import { EquipamentoObraView } from './features/equipamentoObra/EquipamentoObraView';
+import { DashboardView } from './features/dashboard/DashboardView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
-  const [activeTab, setActiveTab] = React.useState<TabId>('equipamentos');
+  const [activeTab, setActiveTab] = React.useState<TabId>('dashboard');
   const { equipments, works, allocations, equipamentoObra, isLoading } = useStore();
   const { logout } = useAuth();
 
@@ -44,8 +44,11 @@ function AppShell() {
             transition={{ duration: 0.2 }}
             className="w-full"
           >
-            {activeTab === 'equipamentos' && (
-              <EquipmentsView equipments={equipments} allocations={allocations.items} />
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                registros={equipamentoObra}
+                equipments={equipments}
+              />
             )}
             {activeTab === 'dados-tecnicos' && (
               <TechnicalDataView equipments={equipments} />
