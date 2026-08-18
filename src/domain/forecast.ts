@@ -1,4 +1,4 @@
-import { startOfMonth, endOfMonth, addMonths, parseISO } from 'date-fns';
+import { startOfMonth, endOfMonth, addMonths, parseISO, getDate, getDaysInMonth } from 'date-fns';
 import { Equipment, Allocation, EquipamentoObra, TabelaLocacao } from '../types';
 
 export interface MonthlyValue {
@@ -110,12 +110,35 @@ export function computeForecastFromEquipObra(
 
       const valor = valorMap.get(`${eq.descricao}||${obra}`) ?? 0;
 
-      // Data de início: dataMobilizacao se preenchida, senão mês atual
       const mobDate = registro.dataMobilizacao ? parseISO(registro.dataMobilizacao) : start;
+      const desmobDate = registro.dataDesmobilizacao ? parseISO(registro.dataDesmobilizacao) : null;
 
       const monthlyValues = months.map<MonthlyValue>((month) => {
-        const ativo = mobDate <= endOfMonth(month);
-        return { value: ativo && valor > 0 ? valor : 0, obra: ativo ? obra : '', tipo: 'Atual' };
+        const startM = startOfMonth(month);
+        const endM = endOfMonth(month);
+
+        // Sem valor ou ainda não mobilizado
+        if (valor === 0 || mobDate > endM) return { value: 0, obra: '', tipo: 'Atual' };
+
+        // Após mês de desmobilização → sem receita
+        if (desmobDate && startM > desmobDate) return { value: 0, obra: '', tipo: 'Atual' };
+
+        const daysInMonth = getDaysInMonth(month);
+        let monthValue = valor;
+
+        // Mês de desmobilização: proporcional pelo dia da desmob
+        if (desmobDate && desmobDate >= startM && desmobDate <= endM) {
+          const dayOfDesmob = getDate(desmobDate);
+          monthValue = Math.round((valor / daysInMonth) * dayOfDesmob);
+        }
+
+        // Mês de mobilização: proporcional pelo dia da mob (aplica sobre o valor já calculado)
+        if (mobDate >= startM && mobDate <= endM) {
+          const dayOfMob = getDate(mobDate);
+          monthValue = Math.round((valor / daysInMonth) * dayOfMob);
+        }
+
+        return { value: monthValue, obra, tipo: 'Atual' };
       });
 
       return { ...eq, monthlyValues };
