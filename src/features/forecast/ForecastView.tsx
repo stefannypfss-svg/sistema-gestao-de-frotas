@@ -49,14 +49,25 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   };
 
   const exportToCSV = () => {
-    const headers = ['Prefixo', 'Equipamento', ...months.map((m) => format(m, 'MMM/yy', { locale: ptBR }))];
-    const csvRows = rows.map((row) => [
+    const monthHeaders = months.map((m) => format(m, 'MMM/yy', { locale: ptBR }));
+    const headers = ['Prefixo', 'Família', 'Obra', ...monthHeaders];
+
+    const dataRows = rows.map((row) => [
       row.prefixo,
       row.familia,
-      ...row.monthlyValues.map((v) => v.value.toString()),
+      row.monthlyValues[0]?.obra ?? '',
+      ...row.monthlyValues.map((v) => String(Math.round((v.value * efficiency) / 100))),
     ]);
-    const csv = [headers, ...csvRows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+    const totalRow = [
+      'TOTAL MENSAL',
+      '',
+      '',
+      ...effectiveTotals.map((t) => String(Math.round(t))),
+    ];
+
+    const csv = [headers, ...dataRows].map((r) => r.join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
