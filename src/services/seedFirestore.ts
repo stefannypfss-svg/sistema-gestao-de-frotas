@@ -183,10 +183,16 @@ export async function seedFirestore(
     await seedCollection(db, collections.equipamentoObra, buildInitialEquipamentoObra(), (r) => r.id);
     await setEquipObraSeedVersion(db, EQUIP_OBRA_SEED_VERSION);
   }
-  const storedTabelaLocacaoVersion = await getTabelaLocacaoSeedVersion(db);
-  if (storedTabelaLocacaoVersion !== TABELA_LOCACAO_SEED_VERSION) {
-    await clearCollection(db, collections.tabelaLocacao);
-    await seedCollection<TabelaLocacao>(db, collections.tabelaLocacao, buildTabelaLocacaoSeed(), (t) => t.id);
-    await setTabelaLocacaoSeedVersion(db, TABELA_LOCACAO_SEED_VERSION);
+  // Insere apenas entradas que ainda não existem — nunca sobrescreve valores customizados.
+  const seedEntries = buildTabelaLocacaoSeed();
+  const missingEntries = await Promise.all(
+    seedEntries.map(async (t) => {
+      const snap = await getDoc(doc(db, collections.tabelaLocacao, t.id));
+      return snap.exists() ? null : t;
+    }),
+  );
+  const toAdd = missingEntries.filter((t): t is TabelaLocacao => t !== null);
+  if (toAdd.length > 0) {
+    await seedCollection<TabelaLocacao>(db, collections.tabelaLocacao, toAdd, (t) => t.id);
   }
 }

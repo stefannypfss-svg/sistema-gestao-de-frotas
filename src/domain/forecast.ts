@@ -1,4 +1,10 @@
-import { startOfMonth, endOfMonth, addMonths, parseISO, getDate, getDaysInMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, addMonths, parseISO, getDate } from 'date-fns';
+
+/** Interpreta YYYY-MM-DD como meia-noite LOCAL (evita desvio UTC × fuso-horário). */
+function parseDateLocal(str: string): Date {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 import { Equipment, Allocation, EquipamentoObra, TabelaLocacao } from '../types';
 
 export interface MonthlyValue {
@@ -110,8 +116,8 @@ export function computeForecastFromEquipObra(
 
       const valor = valorMap.get(`${eq.descricao}||${obra}`) ?? 0;
 
-      const mobDate = registro.dataMobilizacao ? parseISO(registro.dataMobilizacao) : start;
-      const desmobDate = registro.dataDesmobilizacao ? parseISO(registro.dataDesmobilizacao) : null;
+      const mobDate = registro.dataMobilizacao ? parseDateLocal(registro.dataMobilizacao) : start;
+      const desmobDate = registro.dataDesmobilizacao ? parseDateLocal(registro.dataDesmobilizacao) : null;
 
       const monthlyValues = months.map<MonthlyValue>((month) => {
         const startM = startOfMonth(month);
@@ -123,19 +129,16 @@ export function computeForecastFromEquipObra(
         // Após mês de desmobilização → sem receita
         if (desmobDate && startM > desmobDate) return { value: 0, obra: '', tipo: 'Atual' };
 
-        const daysInMonth = getDaysInMonth(month);
         let monthValue = valor;
 
         // Mês de desmobilização: proporcional pelo dia da desmob
         if (desmobDate && desmobDate >= startM && desmobDate <= endM) {
-          const dayOfDesmob = getDate(desmobDate);
-          monthValue = Math.round((valor / daysInMonth) * dayOfDesmob);
+          monthValue = Math.round((valor / 30) * getDate(desmobDate));
         }
 
-        // Mês de mobilização: proporcional pelo dia da mob (aplica sobre o valor já calculado)
+        // Mês de mobilização: proporcional pelo dia da mob
         if (mobDate >= startM && mobDate <= endM) {
-          const dayOfMob = getDate(mobDate);
-          monthValue = Math.round((valor / daysInMonth) * dayOfMob);
+          monthValue = Math.round((valor / 30) * getDate(mobDate));
         }
 
         return { value: monthValue, obra, tipo: 'Atual' };
