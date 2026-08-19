@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { Search, Eraser, X } from 'lucide-react';
-import { EquipamentoObra, Equipment } from '../../types';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { EquipamentoObra, Equipment, DisponibilidadeRecord, DisponibilidadeStatus } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { cn } from '../../lib/utils';
 import { Card, StatCard, StateMessage } from '../../components/ui';
@@ -8,7 +10,21 @@ import { Card, StatCard, StateMessage } from '../../components/ui';
 interface Props {
   registros: Collection<EquipamentoObra>;
   equipments: Collection<Equipment>;
+  disponibilidade: Collection<DisponibilidadeRecord>;
 }
+
+const TODAY_STR = format(new Date(), 'yyyy-MM-dd');
+
+const DISP_STATUS_CONFIG: Record<DisponibilidadeStatus, { label: string; bg: string; text: string }> = {
+  EO: { label: 'Em Operação',     bg: 'bg-green-100',   text: 'text-green-800'  },
+  D:  { label: 'Disponível',      bg: 'bg-amber-50',    text: 'text-amber-700'  },
+  M:  { label: 'Manutenção',      bg: 'bg-red-100',     text: 'text-red-700'    },
+  PL: { label: 'Proc. Liberação', bg: 'bg-sky-100',     text: 'text-sky-700'    },
+  AO: { label: 'Apoio Oficina',   bg: 'bg-violet-100',  text: 'text-violet-700' },
+  UG: { label: 'Uso Gerencial',   bg: 'bg-slate-100',   text: 'text-slate-600'  },
+  V:  { label: 'Venda',           bg: 'bg-orange-100',  text: 'text-orange-700' },
+};
+const DISP_STATUS_ORDER: DisponibilidadeStatus[] = ['EO', 'D', 'M', 'PL', 'AO', 'UG', 'V'];
 
 interface ChartFilters { situacao: string | null; obra: string | null; }
 
@@ -216,7 +232,7 @@ function formatDate(iso?: string): string {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
-export function DashboardView({ registros, equipments }: Props) {
+export function DashboardView({ registros, equipments, disponibilidade }: Props) {
   const [search, setSearch] = React.useState('');
   const [filterSituacao, setFilterSituacao] = React.useState('');
   const [filterObra, setFilterObra] = React.useState('');
@@ -262,6 +278,18 @@ export function DashboardView({ registros, equipments }: Props) {
   );
   const totalValor = mobilizadoValor + desmobilizadoValor;
 
+  // Taxa de ocupação: mobilizados / total ativo
+  const taxaOcupacao = totalAtivo > 0 ? Math.round((mobilizadoCount / totalAtivo) * 100) : 0;
+
+  // Status de disponibilidade de hoje
+  const dispHoje = useMemo(() => {
+    const counts = new Map<DisponibilidadeStatus, number>();
+    disponibilidade.items
+      .filter((r) => r.data === TODAY_STR)
+      .forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
+    return counts;
+  }, [disponibilidade.items]);
+
   // ── Dados do gráfico de obras ──
   const obraItems = useMemo(() => {
     const counts = new Map<string, number>();
@@ -306,20 +334,93 @@ export function DashboardView({ registros, equipments }: Props) {
         <p className="text-[13px] text-gray-400 mt-0.5">Visão geral da frota</p>
       </div>
 
-      {/* KPI cards — todos derivados de Equip. por Obra */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Ativo" value={totalAtivo} accentText="text-neutral" accentBorder="border-l-neutral"
-          footer="Equip. por Obra sem data de envio" />
-        <StatCard label="Mobilizados" value={mobilizadoCount} accentText="text-brand" accentBorder="border-l-brand"
-          footer={<span className="bg-brand-light text-brand rounded-full px-2 py-0.5 text-[12px] font-medium leading-none">
-            {totalAtivo > 0 ? Math.round((mobilizadoCount / totalAtivo) * 100) : 0}% do total
-          </span>} />
-        <StatCard label="Desmobilizados" value={desmobilizadoCount} accentText="text-warning" accentBorder="border-l-warning"
-          footer={<span className="bg-warning-light text-warning rounded-full px-2 py-0.5 text-[12px] font-medium leading-none">
-            {totalAtivo > 0 ? Math.round((desmobilizadoCount / totalAtivo) * 100) : 0}% do total
-          </span>} />
-        <StatCard label="Valor Locação" value={formatBRL(totalValor)} accentText="text-info" accentBorder="border-l-info"
-          footer="Mobilizados + Desmobilizados" />
+        {/* Em Manutenção Hoje */}
+        <div className="bg-white rounded-2xl border border-l-4 border-l-red-400 border-gray-200 shadow-sm px-5 py-4 flex flex-col gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400">Em Manutenção Hoje</span>
+          <div className="flex items-end gap-2">
+            <span className="text-[28px] font-bold text-gray-900 leading-none">{dispHoje.get('M') ?? 0}</span>
+            <span className="text-[12px] text-gray-400 mb-0.5">equip.</span>
+          </div>
+          <span className="text-[11px] text-gray-400">
+            {totalAtivo > 0
+              ? `${Math.round(((dispHoje.get('M') ?? 0) / totalAtivo) * 100)}% da frota parada`
+              : 'Status de hoje'}
+          </span>
+        </div>
+
+        {/* Mob + Desmob unificados */}
+        <div className="bg-white rounded-2xl border border-l-4 border-l-brand border-gray-200 shadow-sm px-5 py-4 flex flex-col gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400">Frota em Campo</span>
+          <div className="flex items-end gap-2">
+            <span className="text-[28px] font-bold text-gray-900 leading-none">{mobilizadoCount + desmobilizadoCount}</span>
+            <span className="text-[12px] text-gray-400 mb-0.5">equip.</span>
+          </div>
+          <div className="flex flex-col gap-1 mt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">Mobilizados</span>
+              <span className="text-[11px] font-bold text-brand">{mobilizadoCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">Desmobilizados</span>
+              <span className="text-[11px] font-bold text-warning">{desmobilizadoCount}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Taxa de Ocupação */}
+        <div className="bg-white rounded-2xl border border-l-4 border-l-info border-gray-200 shadow-sm px-5 py-4 flex flex-col gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400">Taxa de Ocupação</span>
+          <div className="flex items-end gap-1">
+            <span className="text-[28px] font-bold text-gray-900 leading-none">{taxaOcupacao}%</span>
+          </div>
+          {/* Barra de progresso */}
+          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
+            <div className="h-full rounded-full bg-info transition-all duration-500" style={{ width: `${taxaOcupacao}%` }} />
+          </div>
+          <span className="text-[11px] text-gray-400">{mobilizadoCount} mobilizados de {totalAtivo}</span>
+        </div>
+
+        {/* Receita Mobilizada/mês */}
+        <div className="bg-white rounded-2xl border border-l-4 border-l-green-500 border-gray-200 shadow-sm px-5 py-4 flex flex-col gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400">Receita Mobilizada/mês</span>
+          <div className="flex items-end gap-2">
+            <span className="text-[22px] font-bold text-gray-900 leading-none">{formatBRL(mobilizadoValor)}</span>
+          </div>
+          <span className="text-[11px] text-gray-400">
+            {mobilizadoCount} equip. mobilizados × valor de locação
+          </span>
+        </div>
+      </div>
+
+      {/* Disponibilidade Hoje */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-gray-400">
+            Disponibilidade · Hoje ({format(new Date(), "dd 'de' MMMM", { locale: ptBR })})
+          </span>
+          {dispHoje.size === 0 && (
+            <span className="text-[11px] text-gray-400 italic">Nenhum status registrado hoje</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {DISP_STATUS_ORDER.map((s) => {
+            const count = dispHoje.get(s) ?? 0;
+            const cfg = DISP_STATUS_CONFIG[s];
+            return (
+              <div key={s} className={cn(
+                'flex items-center gap-2.5 px-4 py-2.5 rounded-xl border',
+                cfg.bg, cfg.text,
+                count === 0 && 'opacity-30',
+              )}>
+                <span className="text-[13px] font-bold">{s}</span>
+                <span className="text-[11px] opacity-75">{cfg.label}</span>
+                <span className="text-[18px] font-bold ml-1">{count}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Gráficos */}

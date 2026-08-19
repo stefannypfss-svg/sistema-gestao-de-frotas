@@ -50,6 +50,7 @@ function AppShell() {
               <DashboardView
                 registros={equipamentoObra}
                 equipments={equipments}
+                disponibilidade={disponibilidade}
               />
             )}
             {activeTab === 'dados-tecnicos' && (

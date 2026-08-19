@@ -36,6 +36,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
   const [filterFamily, setFilterFamily] = useState('');
   const [filterStatus, setFilterStatus] = useState<DisponibilidadeStatus | ''>('');
   const [editing, setEditing]           = useState<{ prefixo: string; date: string } | null>(null);
+  const [hoveredRow, setHoveredRow]     = useState<string | null>(null);
 
   const hasCopiedRef = useRef(false);
   const popoverRef   = useRef<HTMLDivElement>(null);
@@ -323,15 +324,27 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
 
               <tbody className="divide-y divide-gray-50">
                 {filteredRows.map((r) => {
-                  const eq = eqMap.get(r.prefixo);
+                  const eq         = eqMap.get(r.prefixo);
+                  const isRowActive = hoveredRow === r.prefixo || editing?.prefixo === r.prefixo;
+
                   return (
-                    <tr key={r.prefixo} className="hover:bg-gray-50/50 group">
+                    <tr
+                      key={r.prefixo}
+                      onMouseEnter={() => setHoveredRow(r.prefixo)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
                       {/* Prefixo */}
-                      <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/50 px-3 py-1 border-r border-gray-100 w-[88px]">
+                      <td className={cn(
+                        'sticky left-0 z-10 px-3 py-1 border-r border-gray-100 w-[88px] transition-colors',
+                        isRowActive ? 'bg-brand/10' : 'bg-white',
+                      )}>
                         <span className="text-[11px] font-bold text-brand">{r.prefixo}</span>
                       </td>
                       {/* Descrição */}
-                      <td className="sticky left-[88px] z-10 bg-white group-hover:bg-gray-50/50 px-3 py-1 border-r border-gray-100 w-[200px] max-w-[200px]">
+                      <td className={cn(
+                        'sticky left-[88px] z-10 px-3 py-1 border-r border-gray-100 w-[200px] max-w-[200px] transition-colors',
+                        isRowActive ? 'bg-brand/10' : 'bg-white',
+                      )}>
                         <span className="text-[11px] text-gray-700 line-clamp-1 leading-snug">
                           {eq?.descricao ?? r.prefixo}
                         </span>
@@ -347,8 +360,9 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
                           <td
                             key={d}
                             className={cn(
-                              'w-[46px] min-w-[46px] p-0.5 border-l border-gray-50 relative',
-                              isToday && 'bg-brand/[0.03]',
+                              'w-[46px] min-w-[46px] p-0.5 border-l border-gray-50 relative transition-colors',
+                              isRowActive && !isToday && 'bg-brand/5',
+                              isToday && 'bg-brand/[0.08]',
                             )}
                           >
                             <button
