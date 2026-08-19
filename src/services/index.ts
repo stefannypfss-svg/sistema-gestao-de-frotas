@@ -7,7 +7,7 @@
  *
  * Trocar de backend = trocar as instâncias abaixo. Nada mais no app muda.
  */
-import { Equipment, Work, Allocation, EquipamentoObra, TabelaLocacao } from '../types';
+import { Equipment, Work, Allocation, EquipamentoObra, TabelaLocacao, DisponibilidadeRecord } from '../types';
 import { Repository } from './repository';
 import { LocalStorageRepository } from './localStorageRepository';
 import { FirestoreRepository } from './firestoreRepository';
@@ -21,6 +21,7 @@ const COLLECTIONS = {
   allocations: 'alocacoes',
   equipamentoObra: 'equipamento_obra',
   tabelaLocacao: 'tabela_locacao',
+  disponibilidade: 'disponibilidade',
 } as const;
 
 /** Incrementar força o re-seed do localStorage de equipamentos. */
@@ -46,12 +47,14 @@ const getWorkKey = (w: Work) => w.id;
 const getAllocationKey = (a: Allocation) => a.id;
 const getEquipObraKey = (r: EquipamentoObra) => r.id;
 const getTabelaLocacaoKey = (t: TabelaLocacao) => t.id;
+const getDisponibilidadeKey = (r: DisponibilidadeRecord) => r.id;
 
 let equipmentRepository: Repository<Equipment>;
 let workRepository: Repository<Work>;
 let allocationRepository: Repository<Allocation>;
 let equipamentoObraRepository: Repository<EquipamentoObra>;
 let tabelaLocacaoRepository: Repository<TabelaLocacao>;
+let disponibilidadeRepository: Repository<DisponibilidadeRecord>;
 
 if (isFirebaseConfigured) {
   equipmentRepository = new FirestoreRepository<Equipment>(
@@ -74,6 +77,11 @@ if (isFirebaseConfigured) {
     db,
     COLLECTIONS.tabelaLocacao,
     getTabelaLocacaoKey,
+  );
+  disponibilidadeRepository = new FirestoreRepository<DisponibilidadeRecord>(
+    db,
+    COLLECTIONS.disponibilidade,
+    getDisponibilidadeKey,
   );
 
   // Semeia uma única vez (idempotente). Não bloqueia a renderização.
@@ -106,6 +114,11 @@ if (isFirebaseConfigured) {
     getTabelaLocacaoKey,
     [],
   );
+  disponibilidadeRepository = new LocalStorageRepository<DisponibilidadeRecord>(
+    'cortez_disponibilidade',
+    getDisponibilidadeKey,
+    [],
+  );
   equipamentoObraRepository = new LocalStorageRepository<EquipamentoObra>(
     'cortez_equip_obra',
     getEquipObraKey,
@@ -129,4 +142,4 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository, tabelaLocacaoRepository };
+export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository, tabelaLocacaoRepository, disponibilidadeRepository };

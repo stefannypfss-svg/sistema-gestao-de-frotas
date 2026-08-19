@@ -11,11 +11,12 @@ import { TechnicalDataView } from './features/technicalData/TechnicalDataView';
 import { EquipamentoObraView } from './features/equipamentoObra/EquipamentoObraView';
 import { DashboardView } from './features/dashboard/DashboardView';
 import { TabelaLocacaoView } from './features/tabelaLocacao/TabelaLocacaoView';
+import { DisponibilidadeView } from './features/disponibilidade/DisponibilidadeView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
   const [activeTab, setActiveTab] = React.useState<TabId>('dashboard');
-  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, isLoading } = useStore();
+  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, disponibilidade, isLoading } = useStore();
   const { logout } = useAuth();
 
   if (isLoading) {
@@ -59,6 +60,13 @@ function AppShell() {
                 registros={equipamentoObra}
                 equipments={equipments}
                 works={works.items}
+              />
+            )}
+            {activeTab === 'disponibilidade' && (
+              <DisponibilidadeView
+                equipments={equipments}
+                equipamentoObra={equipamentoObra}
+                disponibilidade={disponibilidade}
               />
             )}
             {activeTab === 'obras' && <WorksView works={works} />}

@@ -106,5 +106,16 @@ export interface TabelaLocacao {
   valor: number;
 }
 
+/** Status diário de disponibilidade de um equipamento. */
+export type DisponibilidadeStatus = 'EO' | 'M' | 'D' | 'V' | 'PL' | 'AO' | 'UG';
+
+export interface DisponibilidadeRecord {
+  /** ID composto: `${prefixo}||${YYYY-MM-DD}` */
+  id: string;
+  prefixo: string;
+  data: string; // YYYY-MM-DD
+  status: DisponibilidadeStatus;
+}
+
 /** Entidades que possuem identificador único. */
 export type Identifiable = Equipment | Work | Allocation;
