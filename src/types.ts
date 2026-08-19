@@ -106,6 +106,37 @@ export interface TabelaLocacao {
   valor: number;
 }
 
+/** Avaliação da Cortez Engenharia em uma avaria. */
+export type AvaliacaoCortezEngenharia =
+  | 'Pendente'
+  | 'Aprovado para inclusão na medição'
+  | 'Aprovado para compra pela Cortez Engenharia'
+  | 'Reprovado'
+  | '';
+
+export interface AvariaMaterial {
+  id: string;
+  material: string;
+  qtd: number | null;
+  fator: number | null;
+  valorUnitario: number | null;
+  percentualBitributacao: number; // default 14.58
+}
+
+export interface AvariaIncidente {
+  id: string;
+  prefixo: string;
+  obra: string;
+  dataSinistro: string;       // YYYY-MM-DD
+  descricao: string;
+  materiais: AvariaMaterial[];
+  relatorioEnviado: 'Sim' | 'Não' | '';
+  dataEnvioRelatorio: string; // YYYY-MM-DD
+  avaliacaoCortez: AvaliacaoCortezEngenharia;
+  valorAprovado: number | null;
+  observacao: string;
+}
+
 /** Status diário de disponibilidade de um equipamento. */
 export type DisponibilidadeStatus = 'EO' | 'M' | 'D' | 'V' | 'PL' | 'AO' | 'UG';
 
