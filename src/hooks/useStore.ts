@@ -7,6 +7,7 @@ import {
   equipamentoObraRepository,
   tabelaLocacaoRepository,
   disponibilidadeRepository,
+  avariaRepository,
 } from '../services';
 
 /**
@@ -25,6 +26,7 @@ export function useStore() {
   const equipamentoObra = useCollection(equipamentoObraRepository, userLabel);
   const tabelaLocacao = useCollection(tabelaLocacaoRepository, userLabel);
   const disponibilidade = useCollection(disponibilidadeRepository, userLabel);
+  const avarias = useCollection(avariaRepository, userLabel);
 
   return {
     equipments,
@@ -33,6 +35,7 @@ export function useStore() {
     equipamentoObra,
     tabelaLocacao,
     disponibilidade,
+    avarias,
     isLoading: equipments.loading || works.loading || allocations.loading || equipamentoObra.loading || tabelaLocacao.loading,
     error: equipments.error ?? works.error ?? allocations.error ?? equipamentoObra.error ?? tabelaLocacao.error,
   };
