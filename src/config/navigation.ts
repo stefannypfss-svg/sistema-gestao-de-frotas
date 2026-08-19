@@ -7,12 +7,12 @@ export interface Tab {
 
 export const TABS: Tab[] = [
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'dados-tecnicos', label: 'Dados Técnicos' },
-  { id: 'equip-por-obra', label: 'Equip. por Obra' },
+  { id: 'dados-tecnicos', label: 'Inventário' },
+  { id: 'equip-por-obra', label: 'EquipxObra' },
   { id: 'disponibilidade', label: 'Disponibilidade' },
-  { id: 'controle-avarias', label: 'Controle de Avarias' },
+  { id: 'controle-avarias', label: 'Avarias' },
   { id: 'obras', label: 'Obras' },
   { id: 'planejamento', label: 'Planejamento' },
-  { id: 'previsao', label: 'Previsão de Receitas' },
-  { id: 'tabela-locacao', label: 'Tabela de Locação' },
+  { id: 'previsao', label: 'Projeção' },
+  { id: 'tabela-locacao', label: 'Tarifário' },
 ];

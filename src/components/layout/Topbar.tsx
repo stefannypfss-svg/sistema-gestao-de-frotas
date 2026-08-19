@@ -29,8 +29,8 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogou
   return (
     <nav className="fixed top-0 left-0 right-0 h-[52px] bg-white border-b border-gray-200 z-50 px-8">
       <div className="max-w-[1600px] mx-auto h-full flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center">
+        {/* Logo + aba Dashboard */}
+        <div className="flex items-center gap-6 shrink-0">
           <img
             src={LOGO_URL}
             alt="Cortez Rental"
@@ -47,14 +47,14 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogou
           </div>
         </div>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-8 h-full">
+        {/* Desktop nav — todas as tabs */}
+        <div className="hidden md:flex items-center gap-5 h-full flex-1 justify-center">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'h-full px-1 flex items-center text-[13px] font-medium transition-all relative',
+                'h-full px-1 flex items-center text-[13px] font-medium transition-all relative whitespace-nowrap',
                 activeTab === tab.id ? 'text-brand' : 'text-gray-500 hover:text-brand',
               )}
             >
@@ -69,16 +69,18 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogou
           ))}
         </div>
 
-        {/* Última alteração */}
-        <div className="hidden md:flex items-center gap-[6px] bg-brand-light border border-brand-border rounded-full px-3 py-1 text-[12px] text-brand">
+        {/* Última alteração — compacto */}
+        <div className="hidden md:flex items-center gap-1.5 bg-brand-light border border-brand-border rounded-full px-2.5 py-1 text-[11px] text-brand shrink-0 max-w-[220px]">
           <div className="relative w-1.5 h-1.5 shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-brand" />
             <div className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-brand animate-ping" />
           </div>
           {lastChangeLabel ? (
-            <span className="font-medium">Última Alteração: {lastChangeLabel}</span>
+            <span className="font-medium truncate" title={`Última Alteração: ${lastChangeLabel}`}>
+              {lastChangeLabel}
+            </span>
           ) : (
-            <span className="font-medium text-gray-400">Nenhuma alteração registrada</span>
+            <span className="font-medium text-gray-400 truncate">Sem alterações</span>
           )}
         </div>
 
@@ -86,9 +88,9 @@ export const Topbar: React.FC<TopbarProps> = ({ activeTab, setActiveTab, onLogou
           <button
             onClick={onLogout}
             title="Sair"
-            className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-gray-500 hover:text-brand transition-colors ml-4"
+            className="hidden md:flex items-center gap-1 text-[12px] font-medium text-gray-400 hover:text-brand transition-colors ml-3 shrink-0"
           >
-            <LogOut size={16} />
+            <LogOut size={14} />
             Sair
           </button>
         )}
