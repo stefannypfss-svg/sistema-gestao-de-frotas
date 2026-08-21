@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { format, subYears } from 'date-fns';
+import { addDays, format, subYears } from 'date-fns';
 import { AlertTriangle, Wrench, PlayCircle, X } from 'lucide-react';
 import { Equipment, EventoManutencao, TipoManutencao, SistemaManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useEventosManutencaoLazy } from '../../hooks/useEventosManutencaoLazy';
 import { verificarAberto, diasSemAtualizacao } from '../../services/manutencaoQueries';
-import { executarBackfillManutencao, ResultadoBackfill } from '../../services/manutencaoBackfill';
+import { executarBackfillManutencao } from '../../services/manutencaoBackfill';
 import { PageHeader, StatCard, FilterSelect, StateMessage, Button } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
@@ -31,7 +31,10 @@ function rotuloEvento(e: EventoManutencao): string {
 
 export function ManutencaoView({ equipments }: Props) {
   const [dataInicio] = useState(() => format(subYears(TODAY, 2), 'yyyy-MM-dd'));
-  const [dataFim] = useState(() => format(TODAY, 'yyyy-MM-dd'));
+  // Margem pra frente: um evento pode ter data_inicio de amanhã (ex.: alguém
+  // marcou M num dia futuro) — sem isso a assinatura, presa a "até hoje",
+  // nunca busca esse documento.
+  const [dataFim] = useState(() => format(addDays(TODAY, 60), 'yyyy-MM-dd'));
   const eventos = useEventosManutencaoLazy(dataInicio, dataFim);
 
   const [filterFamilia, setFilterFamilia] = useState('');
@@ -41,7 +44,6 @@ export function ManutencaoView({ equipments }: Props) {
 
   const [abertosMap, setAbertosMap] = useState<Map<string, boolean>>(new Map());
   const [backfillRodando, setBackfillRodando] = useState(false);
-  const [backfillResultado, setBackfillResultado] = useState<ResultadoBackfill | null>(null);
 
   const eqMap = useMemo(() => {
     const m = new Map<string, Equipment>();
@@ -137,11 +139,19 @@ export function ManutencaoView({ equipments }: Props) {
   const rodarBackfill = async () => {
     if (!window.confirm('Rodar o backfill de manutenção sobre todo o histórico? Isso pode levar alguns minutos.')) return;
     setBackfillRodando(true);
-    setBackfillResultado(null);
     try {
       const prefixos = equipments.items.map((e) => e.prefixo);
       const resultado = await executarBackfillManutencao(prefixos);
-      setBackfillResultado(resultado);
+      console.log('[Manutenção] resultado do backfill:', resultado);
+      const linhas = [
+        `Equipamentos processados: ${resultado.equipamentosProcessados}`,
+        `Blocos criados/atualizados: ${resultado.blocosCriados}`,
+        `Blocos já consistentes: ${resultado.blocosJaConsistentes}`,
+        `Blocos truncados: ${resultado.blocosTruncados}`,
+        `Eventos órfãos removidos: ${resultado.orfaosRemovidos}`,
+        resultado.falhas.length > 0 ? `Falhas: ${resultado.falhas.length} (detalhes no console)` : 'Falhas: 0',
+      ];
+      window.alert(`Backfill concluído\n\n${linhas.join('\n')}`);
     } finally {
       setBackfillRodando(false);
     }
@@ -160,26 +170,6 @@ export function ManutencaoView({ equipments }: Props) {
           </Button>
         }
       />
-
-      {backfillResultado && (
-        <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 text-[12px] text-gray-700 space-y-1">
-          <p className="font-semibold text-[13px] text-gray-800">Resultado do backfill</p>
-          <p>Equipamentos processados: {backfillResultado.equipamentosProcessados}</p>
-          <p>Blocos criados/atualizados: {backfillResultado.blocosCriados}</p>
-          <p>Blocos já consistentes: {backfillResultado.blocosJaConsistentes}</p>
-          <p>Blocos truncados: {backfillResultado.blocosTruncados}</p>
-          {backfillResultado.falhas.length > 0 && (
-            <div className="text-red-600">
-              Falhas ({backfillResultado.falhas.length}):
-              <ul className="list-disc list-inside">
-                {backfillResultado.falhas.map((f, i) => (
-                  <li key={i}>{f.prefixo}: {f.erro}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Indicadores */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
