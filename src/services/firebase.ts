@@ -7,7 +7,11 @@
  * `.env.example`). O `.env` está no .gitignore — não comite credenciais.
  */
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -24,5 +28,14 @@ export const isFirebaseConfigured = Boolean(firebaseConfig.projectId);
 
 const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app);
+/**
+ * Cache local persistente (IndexedDB): a cada F5/nova sessão, o `onSnapshot`
+ * reidrata do disco e busca só o delta desde a última sincronização, em vez
+ * de refazer o full-scan da coleção. `persistentMultipleTabManager` é
+ * obrigatório — sem ele a persistência falha silenciosamente quando o app
+ * fica aberto em mais de uma aba.
+ */
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 export const auth = getAuth(app);

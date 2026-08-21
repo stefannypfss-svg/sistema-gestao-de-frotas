@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "disponibilidade",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "prefixo", "order": "ASCENDING" },
+        { "fieldPath": "data", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "disponibilidade",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "prefixo", "order": "ASCENDING" },
+        { "fieldPath": "data", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "eventos_manutencao",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "prefixo", "order": "ASCENDING" },
+        { "fieldPath": "dataInicio", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

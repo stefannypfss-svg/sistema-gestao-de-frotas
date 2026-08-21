@@ -6,15 +6,19 @@ import {
   allocationRepository,
   equipamentoObraRepository,
   tabelaLocacaoRepository,
-  disponibilidadeRepository,
   avariaRepository,
 } from '../services';
 
 /**
- * Agrega as três coleções do domínio num único ponto de consumo.
+ * Agrega as coleções do domínio num único ponto de consumo.
  *
  * Cada coleção expõe `items`, `loading`, `error` e operações assíncronas
  * (`create`/`update`/`remove`). A origem dos dados é definida em `services/`.
+ *
+ * `disponibilidade` não entra aqui de propósito: é a maior coleção do
+ * sistema (cresce 1 doc/equipamento/dia) e nem toda tela precisa dela. Quem
+ * precisa assina sob demanda via `useDisponibilidadeLazy` (Disponibilidade)
+ * ou `useDisponibilidadeHoje` (Dashboard, só o dia de hoje).
  */
 export function useStore() {
   const { user } = useAuth();
@@ -25,7 +29,6 @@ export function useStore() {
   const allocations = useCollection(allocationRepository, userLabel);
   const equipamentoObra = useCollection(equipamentoObraRepository, userLabel);
   const tabelaLocacao = useCollection(tabelaLocacaoRepository, userLabel);
-  const disponibilidade = useCollection(disponibilidadeRepository, userLabel);
   const avarias = useCollection(avariaRepository, userLabel);
 
   return {
@@ -34,8 +37,8 @@ export function useStore() {
     allocations,
     equipamentoObra,
     tabelaLocacao,
-    disponibilidade,
     avarias,
+    userLabel,
     isLoading: equipments.loading || works.loading || allocations.loading || equipamentoObra.loading || tabelaLocacao.loading,
     error: equipments.error ?? works.error ?? allocations.error ?? equipamentoObra.error ?? tabelaLocacao.error,
   };

@@ -2,15 +2,15 @@ import React, { useMemo } from 'react';
 import { Search, Eraser, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { EquipamentoObra, Equipment, DisponibilidadeRecord, DisponibilidadeStatus } from '../../types';
+import { EquipamentoObra, Equipment, DisponibilidadeStatus } from '../../types';
 import { Collection } from '../../hooks/useCollection';
+import { useDisponibilidadeHoje } from '../../hooks/useDisponibilidadeHoje';
 import { cn } from '../../lib/utils';
 import { Card, StatCard, StateMessage } from '../../components/ui';
 
 interface Props {
   registros: Collection<EquipamentoObra>;
   equipments: Collection<Equipment>;
-  disponibilidade: Collection<DisponibilidadeRecord>;
 }
 
 const TODAY_STR = format(new Date(), 'yyyy-MM-dd');
@@ -64,7 +64,7 @@ function DonutChart({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide text-center">{title}</p>
+      <p className="w-full text-[12px] font-semibold text-gray-500 uppercase tracking-wide text-left">{title}</p>
       <div className="relative w-36 h-36">
         <svg viewBox="0 0 100 100" className="-rotate-90 w-full h-full">
           <circle cx="50" cy="50" r={R} fill="none" stroke="#f3f4f6" strokeWidth="14" />
@@ -126,7 +126,7 @@ function DonutChartValue({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide text-center">{title}</p>
+      <p className="w-full text-[12px] font-semibold text-gray-500 uppercase tracking-wide text-left">{title}</p>
       <div className="relative w-36 h-36">
         <svg viewBox="0 0 100 100" className="-rotate-90 w-full h-full">
           <circle cx="50" cy="50" r={R} fill="none" stroke="#f3f4f6" strokeWidth="14" />
@@ -232,10 +232,11 @@ function formatDate(iso?: string): string {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
-export function DashboardView({ registros, equipments, disponibilidade }: Props) {
+export function DashboardView({ registros, equipments }: Props) {
   const [search, setSearch] = React.useState('');
   const [filterSituacao, setFilterSituacao] = React.useState('');
   const [filterObra, setFilterObra] = React.useState('');
+  const [filterDispStatus, setFilterDispStatus] = React.useState<DisponibilidadeStatus | ''>('');
 
   // ── Filtros interativos dos gráficos ──
   const [chartFilters, setChartFilters] = React.useState<ChartFilters>({ situacao: null, obra: null });
@@ -281,14 +282,20 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
   // Taxa de ocupação: mobilizados / total ativo
   const taxaOcupacao = totalAtivo > 0 ? Math.round((mobilizadoCount / totalAtivo) * 100) : 0;
 
-  // Status de disponibilidade de hoje
+  // Status de disponibilidade de hoje — leitura própria, só o dia de hoje
+  // (ver useDisponibilidadeHoje), não a coleção `disponibilidade` inteira.
+  const disponibilidadeHoje = useDisponibilidadeHoje(TODAY_STR);
   const dispHoje = useMemo(() => {
     const counts = new Map<DisponibilidadeStatus, number>();
-    disponibilidade.items
-      .filter((r) => r.data === TODAY_STR)
-      .forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
+    disponibilidadeHoje.forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
     return counts;
-  }, [disponibilidade.items]);
+  }, [disponibilidadeHoje]);
+
+  const dispStatusPorPrefixo = useMemo(() => {
+    const m = new Map<string, DisponibilidadeStatus>();
+    disponibilidadeHoje.forEach((r) => m.set(r.prefixo, r.status));
+    return m;
+  }, [disponibilidadeHoje]);
 
   // ── Dados do gráfico de obras ──
   const obraItems = useMemo(() => {
@@ -308,6 +315,7 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
       if (chartFilters.obra && r.obra !== chartFilters.obra) return false;
       if (filterSituacao && r.situacao !== filterSituacao) return false;
       if (filterObra && r.obra !== filterObra) return false;
+      if (filterDispStatus && dispStatusPorPrefixo.get(r.prefixo) !== filterDispStatus) return false;
       if (!term) return true;
       const eq = eqMap.get(r.prefixo);
       return (
@@ -317,10 +325,10 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
         (eq?.descricao ?? '').toLowerCase().includes(term)
       );
     });
-  }, [active, search, filterSituacao, filterObra, chartFilters, eqMap]);
+  }, [active, search, filterSituacao, filterObra, filterDispStatus, dispStatusPorPrefixo, chartFilters, eqMap]);
 
   const clearFilters = () => {
-    setSearch(''); setFilterSituacao(''); setFilterObra('');
+    setSearch(''); setFilterSituacao(''); setFilterObra(''); setFilterDispStatus('');
     setChartFilters({ situacao: null, obra: null });
   };
 
@@ -404,13 +412,13 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
             <span className="text-[11px] text-gray-400 italic">Nenhum status registrado hoje</span>
           )}
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {DISP_STATUS_ORDER.map((s) => {
             const count = dispHoje.get(s) ?? 0;
             const cfg = DISP_STATUS_CONFIG[s];
             return (
               <div key={s} className={cn(
-                'flex items-center gap-2.5 px-4 py-2.5 rounded-xl border',
+                'flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border',
                 cfg.bg, cfg.text,
                 count === 0 && 'opacity-30',
               )}>
@@ -467,16 +475,6 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
       <Card>
         <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-4 items-center justify-between border-b border-gray-100">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Buscar prefixo, obra, família..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-[34px] pr-3 h-[42px] bg-white rounded-full border border-line outline-none text-[13px] font-medium transition-all focus:border-brand placeholder:text-gray-400 text-gray-900 shadow-sm"
-              />
-            </div>
             {/* Chips de filtros de gráfico */}
             {chartFilters.situacao && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-light text-brand rounded-full text-[12px] font-semibold border border-brand/20">
@@ -492,6 +490,22 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
             )}
           </div>
           <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto items-center">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Buscar prefixo, obra, família..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-[34px] pr-3 h-[42px] bg-white rounded-full border border-line outline-none text-[13px] font-medium transition-all focus:border-brand placeholder:text-gray-400 text-gray-900 shadow-sm"
+              />
+            </div>
+            {/* Filtro Obra */}
+            <select value={filterObra} onChange={(e) => setFilterObra(e.target.value)}
+              className="px-3 py-2 text-[13px] border border-line rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 text-gray-600 h-[42px] shadow-sm">
+              <option value="">Todas as obras</option>
+              {obras.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
             {/* Filtro Situação */}
             <select value={filterSituacao} onChange={(e) => setFilterSituacao(e.target.value)}
               className="px-3 py-2 text-[13px] border border-line rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 text-gray-600 h-[42px] shadow-sm">
@@ -499,11 +513,13 @@ export function DashboardView({ registros, equipments, disponibilidade }: Props)
               <option value="Mobilizado">Mobilizado</option>
               <option value="Desmobilizado">Desmobilizado</option>
             </select>
-            {/* Filtro Obra */}
-            <select value={filterObra} onChange={(e) => setFilterObra(e.target.value)}
+            {/* Filtro Status (Disponibilidade de hoje) */}
+            <select value={filterDispStatus} onChange={(e) => setFilterDispStatus(e.target.value as DisponibilidadeStatus | '')}
               className="px-3 py-2 text-[13px] border border-line rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 text-gray-600 h-[42px] shadow-sm">
-              <option value="">Todas as obras</option>
-              {obras.map((o) => <option key={o} value={o}>{o}</option>)}
+              <option value="">Todos os status</option>
+              {DISP_STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>{s} – {DISP_STATUS_CONFIG[s].label}</option>
+              ))}
             </select>
             <button type="button" onClick={clearFilters} title="Limpar filtros"
               className="inline-flex items-center justify-center w-[42px] h-[42px] rounded-full bg-white border border-line text-gray-500 hover:bg-surface-muted transition-colors shadow-sm shrink-0">

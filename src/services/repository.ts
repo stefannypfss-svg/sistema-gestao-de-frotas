@@ -6,6 +6,12 @@
  * fornecer outra classe que implemente `Repository` e apontar `services/index.ts`
  * para ela — sem tocar na camada de apresentação.
  */
+/** Filtro de intervalo (`>=`/`<=`) sobre o campo de range configurado na implementação. */
+export interface RangeFilter {
+  gte?: string;
+  lte?: string;
+}
+
 export interface Repository<T> {
   /** Retorna todos os registros. */
   list(): Promise<T[]>;
@@ -20,10 +26,16 @@ export interface Repository<T> {
    * Retorna uma função para cancelar a escuta. Implementações sem suporte a
    * tempo real (ex: localStorage) simplesmente omitem este método — os
    * consumidores caem no modo `list()`.
+   *
+   * `range`: opcional, restringe a assinatura ao intervalo informado sobre o
+   * campo de range da implementação (ver `FirestoreRepository`). Repositórios
+   * que não declaram campo de range ignoram o argumento e assinam tudo, como
+   * antes — nenhuma coleção existente muda de comportamento por causa disso.
    */
   subscribe?(
     onChange: (items: T[]) => void,
     onError?: (error: Error) => void,
+    range?: RangeFilter,
   ): () => void;
 }
 
