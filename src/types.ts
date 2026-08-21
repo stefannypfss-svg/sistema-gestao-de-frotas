@@ -146,6 +146,10 @@ export interface DisponibilidadeRecord {
   prefixo: string;
   data: string; // YYYY-MM-DD
   status: DisponibilidadeStatus;
+  /** Horário de início da manutenção (HH:mm), aplicável quando status === 'M'. Pode ser preenchido depois. */
+  horaInicio?: string;
+  /** Horário de fim da manutenção (HH:mm), aplicável quando status === 'M'. Pode ser preenchido depois. */
+  horaFim?: string;
 }
 
 /** Entidades que possuem identificador único. */

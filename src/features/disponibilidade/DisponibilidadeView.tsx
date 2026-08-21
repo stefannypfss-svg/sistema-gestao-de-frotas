@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { format, getDaysInMonth, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, X } from 'lucide-react';
+import { Download, X, Clock } from 'lucide-react';
 import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { PageHeader, Button, FilterSelect, StateMessage } from '../../components/ui';
@@ -37,6 +37,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
   const [filterStatus, setFilterStatus] = useState<DisponibilidadeStatus | ''>('');
   const [editing, setEditing]           = useState<{ prefixo: string; date: string } | null>(null);
   const [hoveredRow, setHoveredRow]     = useState<string | null>(null);
+  const [timeDraft, setTimeDraft]       = useState<{ horaInicio: string; horaFim: string }>({ horaInicio: '', horaFim: '' });
 
   const hasCopiedRef = useRef(false);
   const popoverRef   = useRef<HTMLDivElement>(null);
@@ -78,6 +79,12 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
   const recordMap = useMemo(() => {
     const m = new Map<string, DisponibilidadeStatus>();
     disponibilidade.items.forEach((r) => m.set(r.id, r.status));
+    return m;
+  }, [disponibilidade.items]);
+
+  const fullRecordMap = useMemo(() => {
+    const m = new Map<string, DisponibilidadeRecord>();
+    disponibilidade.items.forEach((r) => m.set(r.id, r));
     return m;
   }, [disponibilidade.items]);
 
@@ -146,6 +153,21 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
       }
     },
     [recordMap, disponibilidade],
+  );
+
+  const handleSaveTime = useCallback(
+    async (prefixo: string, date: string) => {
+      const id  = `${prefixo}||${date}`;
+      const rec = fullRecordMap.get(id);
+      if (!rec) return;
+      await disponibilidade.update(id, {
+        ...rec,
+        horaInicio: timeDraft.horaInicio || undefined,
+        horaFim: timeDraft.horaFim || undefined,
+      });
+      setEditing(null);
+    },
+    [fullRecordMap, disponibilidade, timeDraft],
   );
 
   /* ── Export CSV ───────────────────────────────────────────────── */
@@ -351,10 +373,13 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
                       </td>
                       {/* Células de dia */}
                       {days.map((d) => {
-                        const status    = recordMap.get(`${r.prefixo}||${d}`);
+                        const id        = `${r.prefixo}||${d}`;
+                        const status    = recordMap.get(id);
+                        const record    = fullRecordMap.get(id);
                         const cfg       = status ? STATUS_CONFIG[status] : null;
                         const isToday   = d === TODAY_STR;
                         const isEditing = editing?.prefixo === r.prefixo && editing?.date === d;
+                        const hasHorario = status === 'M' && (record?.horaInicio || record?.horaFim);
 
                         return (
                           <td
@@ -366,13 +391,29 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
                             )}
                           >
                             <button
-                              onClick={() => setEditing(isEditing ? null : { prefixo: r.prefixo, date: d })}
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditing(null);
+                                } else {
+                                  setTimeDraft({
+                                    horaInicio: record?.horaInicio ?? '',
+                                    horaFim: record?.horaFim ?? '',
+                                  });
+                                  setEditing({ prefixo: r.prefixo, date: d });
+                                }
+                              }}
+                              title={
+                                status === 'M'
+                                  ? `Manutenção${record?.horaInicio ? ` · ${record.horaInicio}` : ''}${record?.horaFim ? `–${record.horaFim}` : ''}`
+                                  : undefined
+                              }
                               className={cn(
-                                'w-full h-7 flex items-center justify-center text-[10px] font-bold rounded transition-all hover:opacity-75',
+                                'w-full h-7 flex items-center justify-center gap-0.5 text-[10px] font-bold rounded transition-all hover:opacity-75',
                                 cfg ? [cfg.bg, cfg.text] : 'text-transparent hover:bg-gray-100',
                               )}
                             >
                               {status ?? '·'}
+                              {hasHorario && <Clock size={8} className="shrink-0" />}
                             </button>
 
                             {/* Popover de seleção */}
@@ -405,6 +446,35 @@ export function DisponibilidadeView({ equipments, equipamentoObra, disponibilida
                                   >
                                     <X size={11} /> Limpar
                                   </button>
+                                )}
+
+                                {status === 'M' && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-gray-100 px-1">
+                                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
+                                      <Clock size={10} /> Horário da manutenção
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="time"
+                                        value={timeDraft.horaInicio}
+                                        onChange={(e) => setTimeDraft((t) => ({ ...t, horaInicio: e.target.value }))}
+                                        className="w-full h-7 px-1.5 text-[11px] border border-gray-200 rounded-md focus:outline-none focus:border-brand"
+                                      />
+                                      <span className="text-gray-300 text-[11px]">–</span>
+                                      <input
+                                        type="time"
+                                        value={timeDraft.horaFim}
+                                        onChange={(e) => setTimeDraft((t) => ({ ...t, horaFim: e.target.value }))}
+                                        className="w-full h-7 px-1.5 text-[11px] border border-gray-200 rounded-md focus:outline-none focus:border-brand"
+                                      />
+                                    </div>
+                                    <button
+                                      onClick={() => handleSaveTime(r.prefixo, d)}
+                                      className="w-full mt-1.5 h-7 flex items-center justify-center text-[11px] font-medium text-white bg-brand rounded-md hover:opacity-90 transition-opacity"
+                                    >
+                                      Salvar horário
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             )}
