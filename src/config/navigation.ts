@@ -1,4 +1,4 @@
-export type TabId = 'dashboard' | 'dados-tecnicos' | 'equip-por-obra' | 'disponibilidade' | 'controle-avarias' | 'obras' | 'planejamento' | 'previsao' | 'tabela-locacao';
+export type TabId = 'dashboard' | 'dados-tecnicos' | 'equip-por-obra' | 'disponibilidade' | 'manutencao' | 'controle-avarias' | 'obras' | 'planejamento' | 'previsao' | 'tabela-locacao';
 
 export interface Tab {
   id: TabId;
@@ -10,6 +10,7 @@ export const TABS: Tab[] = [
   { id: 'dados-tecnicos', label: 'Inventário' },
   { id: 'equip-por-obra', label: 'EquipxObra' },
   { id: 'disponibilidade', label: 'Disponibilidade' },
+  { id: 'manutencao', label: 'Manutenção' },
   { id: 'controle-avarias', label: 'Avarias' },
   { id: 'obras', label: 'Obras' },
   { id: 'planejamento', label: 'Planejamento' },

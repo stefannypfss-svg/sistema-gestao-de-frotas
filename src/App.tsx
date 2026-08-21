@@ -2,6 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
+import { disconnectDisponibilidade } from './hooks/useDisponibilidadeLazy';
+import { disconnectEventosManutencao } from './hooks/useEventosManutencaoLazy';
 import { TabId } from './config/navigation';
 import { Topbar } from './components/layout/Topbar';
 import { WorksView } from './features/works/WorksView';
@@ -12,13 +14,22 @@ import { EquipamentoObraView } from './features/equipamentoObra/EquipamentoObraV
 import { DashboardView } from './features/dashboard/DashboardView';
 import { TabelaLocacaoView } from './features/tabelaLocacao/TabelaLocacaoView';
 import { DisponibilidadeView } from './features/disponibilidade/DisponibilidadeView';
+import { ManutencaoView } from './features/manutencao/ManutencaoView';
 import { ControleAvariasView } from './features/controleAvarias/ControleAvariasView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
   const [activeTab, setActiveTab] = React.useState<TabId>('dashboard');
-  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, disponibilidade, avarias, isLoading } = useStore();
+  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, avarias, isLoading } = useStore();
   const { logout } = useAuth();
+
+  // `disponibilidade` é assinada sob demanda (ver useDisponibilidadeLazy) e
+  // vive fora do ciclo de vida de qualquer tela — encerra só quando o
+  // AppShell inteiro desmonta, ou seja, no logout.
+  React.useEffect(() => () => {
+    disconnectDisponibilidade();
+    disconnectEventosManutencao();
+  }, []);
 
   if (isLoading) {
     return (
@@ -51,7 +62,6 @@ function AppShell() {
               <DashboardView
                 registros={equipamentoObra}
                 equipments={equipments}
-                disponibilidade={disponibilidade}
               />
             )}
             {activeTab === 'dados-tecnicos' && (
@@ -68,8 +78,10 @@ function AppShell() {
               <DisponibilidadeView
                 equipments={equipments}
                 equipamentoObra={equipamentoObra}
-                disponibilidade={disponibilidade}
               />
+            )}
+            {activeTab === 'manutencao' && (
+              <ManutencaoView equipments={equipments} />
             )}
             {activeTab === 'controle-avarias' && (
               <ControleAvariasView

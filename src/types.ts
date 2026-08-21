@@ -150,6 +150,42 @@ export interface DisponibilidadeRecord {
   horaInicio?: string;
   /** Horário de fim da manutenção (HH:mm), aplicável quando status === 'M'. Pode ser preenchido depois. */
   horaFim?: string;
+  /** Vínculo com o evento de manutenção — preenchido apenas quando status === 'M'. */
+  eventoId?: string;
+}
+
+/** Classificação de um evento de manutenção. */
+export type TipoManutencao = 'Corretiva' | 'Preventiva' | 'Revisão' | 'Sinistro';
+export type SistemaManutencao = 'Motor' | 'Hidráulico' | 'Elétrico' | 'Rodante' | 'Estrutura' | 'Outro';
+
+/**
+ * Evento de manutenção — sempre derivado dos `status_dia` (DisponibilidadeRecord)
+ * vinculados a ele pela função de reconciliação. Nunca escrito à mão.
+ */
+export interface EventoManutencao {
+  id: string;
+  prefixo: string;
+  dataInicio: string; // YYYY-MM-DD — derivado do bloco de dias vinculados
+  dataFim: string;    // YYYY-MM-DD — derivado do bloco de dias vinculados
+  tipo: TipoManutencao | null;
+  sistema: SistemaManutencao | null;
+  nota: string | null;
+  /** true = nasceu de "Não, nova ocorrência" — bloqueia merge silencioso nessa fronteira. */
+  separacaoManual: boolean;
+  /** diasParados = dataFim − dataInicio + 1 (diferença de datas, nunca contagem de registros). */
+  diasParados: number;
+  horasParadas: number;
+  /** true = falta horário em alguma ponta do evento (início ou fim). */
+  horasParciais: boolean;
+  /**
+   * true = o scan de reconciliação bateu no teto de expansão (ver
+   * `manutencaoReconciliation.ts`) antes de confirmar a borda real do
+   * bloco. O evento foi gravado com o que foi possível ler com segurança —
+   * `dataInicio`/`dataFim` podem não refletir o bloco inteiro.
+   */
+  truncado: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Entidades que possuem identificador único. */
