@@ -5,8 +5,17 @@ import { ptBR } from 'date-fns/locale';
 import { Equipment, EquipamentoObra, TabelaLocacao, Work } from '../../types';
 import { cn, formatCurrency } from '../../lib/utils';
 import { uniqueFamilies } from '../../domain/equipment';
-import { computeForecastFromEquipObra } from '../../domain/forecast';
+import { computeForecastFromEquipObra, periodoMedicaoAtual } from '../../domain/forecast';
+import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
+import { eventoManutencaoRepository } from '../../services';
+import { EventoManutencao } from '../../types';
 import { PageHeader, Button, Card, FilterSelect } from '../../components/ui';
+
+const HOJE_STR = format(new Date(), 'yyyy-MM-dd');
+// Início do período de medição corrente (dia 20 do mês anterior, ou deste
+// mês se hoje ainda não passou do dia 19) — não o início do mês calendário,
+// pra cobrir dias de manutenção já registrados que caem antes do dia 1.
+const INICIO_PERIODO_ATUAL_STR = format(periodoMedicaoAtual().inicio, 'yyyy-MM-dd');
 
 interface ForecastViewProps {
   equipments: Equipment[];
@@ -31,11 +40,33 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   const obras = works.map((w) => w.nome).sort();
   const families = uniqueFamilies(equipments);
 
-  const { months, rows, monthlyTotals } = computeForecastFromEquipObra(
+  // Só até hoje — dias M/AO no futuro (ex.: manutenção agendada) ainda
+  // contam como receita normal, já que não aconteceram. Sem isso, o
+  // cálculo nunca precisaria olhar além do mês corrente.
+  const disponibilidade = useDisponibilidadeLazy(INICIO_PERIODO_ATUAL_STR, HOJE_STR);
+
+  // Leitura pontual da coleção inteira, não filtrada por período: um
+  // evento pode ter começado num mês anterior e ainda estar aberto agora
+  // (dataInicio ficaria fora de qualquer range mensal) — precisamos do
+  // `tipo` dele mesmo assim, pra não excluir Sinistro por engano.
+  const [eventosManutencao, setEventosManutencao] = React.useState<EventoManutencao[]>([]);
+  React.useEffect(() => {
+    let cancelado = false;
+    eventoManutencaoRepository.list().then((todos) => {
+      if (!cancelado) setEventosManutencao(todos);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const { rows, monthlyTotals, periodos } = computeForecastFromEquipObra(
     equipments,
     equipamentoObra,
     tabelaLocacao,
     { period, filterObra, filterFamily },
+    disponibilidade.items,
+    eventosManutencao,
   );
 
   const effectiveTotals = monthlyTotals.map((t) => (t * efficiency) / 100);
@@ -49,7 +80,9 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   };
 
   const exportToCSV = () => {
-    const monthHeaders = months.map((m) => format(m, 'MMM/yy', { locale: ptBR }));
+    const monthHeaders = periodos.map(
+      (p) => `${format(p.rotulo, 'MMM/yy', { locale: ptBR })} (${format(p.inicio, 'dd/MM')}-${format(p.fim, 'dd/MM')})`,
+    );
     const headers = ['Prefixo', 'Família', 'Obra', ...monthHeaders];
 
     const dataRows = rows.map((row) => [
@@ -157,9 +190,14 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                 <th className="sticky left-0 z-20 bg-surface-muted px-8 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-r border-line min-w-[280px]">
                   Equipamento
                 </th>
-                {months.map((m) => (
-                  <th key={m.toISOString()} className="px-6 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] text-right min-w-[150px] border-l border-gray-100 bg-surface-muted">
-                    {format(m, 'MMM/yy', { locale: ptBR })}
+                {periodos.map((p) => (
+                  <th key={p.rotulo.toISOString()} className="px-6 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] text-right min-w-[150px] border-l border-gray-100 bg-surface-muted">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span>{format(p.rotulo, 'MMM/yy', { locale: ptBR })}</span>
+                      <span className="text-[10px] font-normal normal-case tracking-normal text-gray-400">
+                        {format(p.inicio, 'dd/MM')}–{format(p.fim, 'dd/MM')}
+                      </span>
+                    </div>
                   </th>
                 ))}
               </tr>
