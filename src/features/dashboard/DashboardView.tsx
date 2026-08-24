@@ -264,51 +264,27 @@ export function DashboardView({ registros, equipments }: Props) {
     [registros.items],
   );
 
-  // ── KPIs derivados do Equip. por Obra ──
-  const totalAtivo = active.length;
-  const mobilizadoCount = useMemo(() => active.filter((r) => r.situacao === 'Mobilizado').length, [active]);
-  const desmobilizadoCount = useMemo(() => active.filter((r) => r.situacao === 'Desmobilizado').length, [active]);
-
-  const mobilizadoValor = useMemo(
-    () => active.filter((r) => r.situacao === 'Mobilizado').reduce((s, r) => s + (eqMap.get(r.prefixo)?.valorLocacao ?? 0), 0),
-    [active, eqMap],
-  );
-  const desmobilizadoValor = useMemo(
-    () => active.filter((r) => r.situacao === 'Desmobilizado').reduce((s, r) => s + (eqMap.get(r.prefixo)?.valorLocacao ?? 0), 0),
-    [active, eqMap],
-  );
-  const totalValor = mobilizadoValor + desmobilizadoValor;
-
-  // Taxa de ocupação: mobilizados / total ativo
-  const taxaOcupacao = totalAtivo > 0 ? Math.round((mobilizadoCount / totalAtivo) * 100) : 0;
-
   // Status de disponibilidade de hoje — leitura própria, só o dia de hoje
   // (ver useDisponibilidadeHoje), não a coleção `disponibilidade` inteira.
+  // Sempre por cima do conjunto INTEIRO (não filtrado) — é a fonte usada
+  // pra decidir quem passa no filtro de status, e pra derivar a versão
+  // filtrada logo abaixo.
   const disponibilidadeHoje = useDisponibilidadeHoje(TODAY_STR);
-  const dispHoje = useMemo(() => {
-    const counts = new Map<DisponibilidadeStatus, number>();
-    disponibilidadeHoje.forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
-    return counts;
-  }, [disponibilidadeHoje]);
-
   const dispStatusPorPrefixo = useMemo(() => {
     const m = new Map<string, DisponibilidadeStatus>();
     disponibilidadeHoje.forEach((r) => m.set(r.prefixo, r.status));
     return m;
   }, [disponibilidadeHoje]);
 
-  // ── Dados do gráfico de obras ──
-  const obraItems = useMemo(() => {
-    const counts = new Map<string, number>();
-    active.forEach((r) => counts.set(r.obra, (counts.get(r.obra) ?? 0) + 1));
-    return [...counts.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-  }, [active]);
-
-  // ── Lista de obras para o filtro ──
+  // ── Lista de obras para o filtro — sempre a partir do conjunto inteiro,
+  // pra não sumir opções do dropdown conforme o usuário filtra. ──
   const obras = useMemo(() => [...new Set(active.map((r) => r.obra).filter(Boolean))].sort(), [active]);
 
-  // ── Tabela: registros ativos filtrados + join Equipment ──
-  const filtered = useMemo(() => {
+  // ── Conjunto cruzado: todo filtro (clique em gráfico, select da tabela,
+  // busca) passa por aqui uma vez só, e gráficos + cards + tabela leem
+  // exclusivamente daqui — clicar em qualquer um deles atualiza os
+  // outros, porque todos derivam do mesmo `filteredActive`. ──
+  const filteredActive = useMemo(() => {
     const term = search.toLowerCase();
     return active.filter((r) => {
       if (chartFilters.situacao && r.situacao !== chartFilters.situacao) return false;
@@ -327,19 +303,66 @@ export function DashboardView({ registros, equipments }: Props) {
     });
   }, [active, search, filterSituacao, filterObra, filterDispStatus, dispStatusPorPrefixo, chartFilters, eqMap]);
 
+  const filteredPrefixos = useMemo(() => new Set(filteredActive.map((r) => r.prefixo)), [filteredActive]);
+
+  // ── KPIs — todos a partir de `filteredActive` ──
+  const totalAtivo = filteredActive.length;
+  const mobilizadoCount = useMemo(() => filteredActive.filter((r) => r.situacao === 'Mobilizado').length, [filteredActive]);
+  const desmobilizadoCount = useMemo(() => filteredActive.filter((r) => r.situacao === 'Desmobilizado').length, [filteredActive]);
+
+  const mobilizadoValor = useMemo(
+    () => filteredActive.filter((r) => r.situacao === 'Mobilizado').reduce((s, r) => s + (eqMap.get(r.prefixo)?.valorLocacao ?? 0), 0),
+    [filteredActive, eqMap],
+  );
+  const desmobilizadoValor = useMemo(
+    () => filteredActive.filter((r) => r.situacao === 'Desmobilizado').reduce((s, r) => s + (eqMap.get(r.prefixo)?.valorLocacao ?? 0), 0),
+    [filteredActive, eqMap],
+  );
+  const totalValor = mobilizadoValor + desmobilizadoValor;
+
+  // Taxa de ocupação: mobilizados / total ativo (dentro do filtro)
+  const taxaOcupacao = totalAtivo > 0 ? Math.round((mobilizadoCount / totalAtivo) * 100) : 0;
+
+  // "Disponibilidade Hoje" restrita aos prefixos que sobreviveram ao filtro
+  const dispHoje = useMemo(() => {
+    const counts = new Map<DisponibilidadeStatus, number>();
+    disponibilidadeHoje
+      .filter((r) => filteredPrefixos.has(r.prefixo))
+      .forEach((r) => counts.set(r.status, (counts.get(r.status) ?? 0) + 1));
+    return counts;
+  }, [disponibilidadeHoje, filteredPrefixos]);
+
+  // ── Dados do gráfico de obras — a partir de `filteredActive` ──
+  const obraItems = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredActive.forEach((r) => counts.set(r.obra, (counts.get(r.obra) ?? 0) + 1));
+    return [...counts.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+  }, [filteredActive]);
+
   const clearFilters = () => {
     setSearch(''); setFilterSituacao(''); setFilterObra(''); setFilterDispStatus('');
     setChartFilters({ situacao: null, obra: null });
   };
 
   const hasChartFilter = chartFilters.situacao || chartFilters.obra;
+  const hasAnyFilter = Boolean(
+    hasChartFilter || search || filterSituacao || filterObra || filterDispStatus,
+  );
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-[20px] font-bold text-gray-900">Dashboard</h1>
-        <p className="text-[13px] text-gray-400 mt-0.5">Visão geral da frota</p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-[20px] font-bold text-gray-900">Dashboard</h1>
+          <p className="text-[13px] text-gray-400 mt-0.5">Visão geral da frota</p>
+        </div>
+        {hasAnyFilter && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-light text-brand rounded-full text-[12px] font-semibold border border-brand/20">
+            <span>Cards, gráficos e tabela filtrados · {totalAtivo} de {active.length} equip.</span>
+            <button onClick={clearFilters} className="hover:text-brand/60"><X size={12} /></button>
+          </div>
+        )}
       </div>
 
       {/* KPI cards */}
@@ -530,15 +553,15 @@ export function DashboardView({ registros, equipments }: Props) {
 
         {/* Contador */}
         <div className="px-6 py-2 text-[12px] text-gray-400 border-b border-gray-50">
-          {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
-          {hasChartFilter && ' (filtrado pelo gráfico)'}
+          {filteredActive.length} registro{filteredActive.length !== 1 ? 's' : ''}
+          {hasAnyFilter && ' (filtrado)'}
         </div>
 
         {registros.loading || eqLoading ? (
           <StateMessage>Carregando…</StateMessage>
         ) : eqError ? (
           <StateMessage>Erro ao carregar equipamentos: {eqError}</StateMessage>
-        ) : filtered.length === 0 ? (
+        ) : filteredActive.length === 0 ? (
           <StateMessage>Nenhum registro encontrado.</StateMessage>
         ) : (
           <div className="overflow-x-auto">
@@ -551,7 +574,7 @@ export function DashboardView({ registros, equipments }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map((r) => {
+                {filteredActive.map((r) => {
                   const eq = eqMap.get(r.prefixo);
                   return (
                     <tr key={r.id} className="hover:bg-brand-light transition-colors">
