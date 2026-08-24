@@ -10,7 +10,7 @@
  */
 import { doc, getDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
-import { COLLECTIONS, disponibilidadeRepository } from './index';
+import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository } from './index';
 import { DisponibilidadeRecord, EventoManutencao } from '../types';
 import { reconciliarM } from './manutencaoReconciliation';
 
@@ -93,7 +93,47 @@ export interface ResultadoBackfill {
   blocosCriados: number;
   blocosJaConsistentes: number;
   blocosTruncados: number;
+  orfaosRemovidos: number;
   falhas: { prefixo: string; erro: string }[];
+}
+
+/**
+ * Remove eventos de manutenção que nenhum dia mais referencia — a
+ * reconciliação normal só anda no sentido dia → evento (garante que todo
+ * dia aponte pro evento certo), então um evento que perdeu seu único dia
+ * vinculado (ex.: o dia foi reatribuído a outro evento num teste, ou
+ * editado fora do fluxo normal) fica pra trás, órfão, e nunca é limpo por
+ * conta própria. Esta função varre no sentido inverso: evento → dias.
+ */
+async function removerOrfaos(
+  prefixos: string[],
+  falhas: { prefixo: string; erro: string }[],
+): Promise<number> {
+  const [todosEventos, todosDias] = await Promise.all([
+    eventoManutencaoRepository.list(),
+    disponibilidadeRepository.list(),
+  ]);
+
+  const referenciados = new Set(
+    todosDias.filter((d) => d.status === 'M' && d.eventoId).map((d) => d.eventoId as string),
+  );
+
+  const prefixosSet = new Set(prefixos);
+  const orfaos = todosEventos.filter((e) => prefixosSet.has(e.prefixo) && !referenciados.has(e.id));
+
+  let removidos = 0;
+  for (const evento of orfaos) {
+    try {
+      await eventoManutencaoRepository.remove(evento.id);
+      removidos++;
+    } catch (e) {
+      falhas.push({
+        prefixo: evento.prefixo,
+        erro: `remover evento órfão ${evento.id} (${evento.dataInicio}–${evento.dataFim}): ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  }
+  return removidos;
 }
 
 export async function executarBackfillManutencao(prefixos: string[]): Promise<ResultadoBackfill> {
@@ -102,6 +142,7 @@ export async function executarBackfillManutencao(prefixos: string[]): Promise<Re
     blocosCriados: 0,
     blocosJaConsistentes: 0,
     blocosTruncados: 0,
+    orfaosRemovidos: 0,
     falhas: [],
   };
 
@@ -146,6 +187,14 @@ export async function executarBackfillManutencao(prefixos: string[]): Promise<Re
     } catch (e) {
       resultado.falhas.push({ prefixo, erro: e instanceof Error ? e.message : String(e) });
     }
+  }
+
+  // Roda por último — só depois que todos os blocos foram reconciliados é
+  // que "não referenciado" reflete o estado final, não um intermediário.
+  try {
+    resultado.orfaosRemovidos = await removerOrfaos(prefixos, resultado.falhas);
+  } catch (e) {
+    resultado.falhas.push({ prefixo: '(órfãos)', erro: e instanceof Error ? e.message : String(e) });
   }
 
   return resultado;
