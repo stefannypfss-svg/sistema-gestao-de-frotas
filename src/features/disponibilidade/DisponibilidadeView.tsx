@@ -5,7 +5,7 @@ import { Download, X, Clock, AlertTriangle } from 'lucide-react';
 import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
-import { fetchUltimosRegistros, fetchUltimoRegistroAntes } from '../../services';
+import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository } from '../../services';
 import {
   previewVinculoM,
   reconciliarM,
@@ -170,13 +170,23 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
             const ultimo = ultimosPorPrefixo.get(prefixo) ?? (await fetchUltimoRegistroAntes(prefixo, amanha));
             if (!ultimo || ultimo.data === TODAY_STR) return;
 
+            // Compara por string de data (yyyy-MM-dd), não por Date com hora:
+            // `day` fica sempre fixado ao meio-dia (T12:00:00) pra evitar
+            // problema de fuso, mas `TODAY` carrega a hora real do momento
+            // em que a página carregou. Comparar os dois como Date fazia o
+            // loop nunca rodar se a página fosse aberta antes do meio-dia —
+            // "hoje às 12h" > "agora, 08h", então "hoje" nunca era preenchido
+            // até alguém abrir o sistema à tarde.
             for (
               let day = addDays(new Date(ultimo.data + 'T12:00:00'), 1);
-              day <= TODAY;
+              format(day, 'yyyy-MM-dd') <= TODAY_STR;
               day = addDays(day, 1)
             ) {
               const dayStr = format(day, 'yyyy-MM-dd');
-              await disponibilidade.create({ id: `${prefixo}||${dayStr}`, prefixo, data: dayStr, status: ultimo.status });
+              // Escreve direto pelo repository, não pelo `disponibilidade.create` —
+              // esse último dispara recordChange, e preenchimento automático não é
+              // uma edição de usuário (mesma regra já aplicada ao backfill).
+              await disponibilidadeRepository.create({ id: `${prefixo}||${dayStr}`, prefixo, data: dayStr, status: ultimo.status });
             }
           } catch (e) {
             console.error(`[Disponibilidade] auto-copy falhou para ${prefixo} — dias não preenchidos.`, e);
