@@ -30,8 +30,13 @@ const VALORES_PADRAO: Record<string, number> = {
   'Trator de esteira D8T ou similar (231 a 380 hp)': 45000,
 };
 
+/** `/` quebra o ID de documento do Firestore (é o separador de caminho) — troca por `-`. */
+function semBarra(texto: string): string {
+  return texto.replace(/\//g, '-');
+}
+
 export function makeTabelaLocacaoId(descricao: string, obra: string): string {
-  return `${descricao}||${obra}`;
+  return `${semBarra(descricao)}||${semBarra(obra)}`;
 }
 
 export function buildTabelaLocacaoSeed(): TabelaLocacao[] {
