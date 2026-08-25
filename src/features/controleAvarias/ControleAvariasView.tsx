@@ -7,7 +7,7 @@ import {
   AvaliacaoCortezEngenharia,
 } from '../../types';
 import { Collection } from '../../hooks/useCollection';
-import { PageHeader, Button, StateMessage } from '../../components/ui';
+import { PageHeader, Button, StateMessage, FilterSelect } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -157,6 +157,8 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
   const [form, setForm]         = useState<IncidenteForm>(emptyForm());
   const [saving, setSaving]     = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [filterObra, setFilterObra]     = useState('');
+  const [filterPrefixo, setFilterPrefixo] = useState('');
 
   function exportCSV() {
     const headers = [
@@ -217,8 +219,11 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
   );
 
   const sorted = useMemo(
-    () => [...avarias.items].sort((a, b) => b.dataSinistro.localeCompare(a.dataSinistro)),
-    [avarias.items],
+    () => [...avarias.items]
+      .filter((a) => !filterObra || a.obra === filterObra)
+      .filter((a) => !filterPrefixo || a.prefixo === filterPrefixo)
+      .sort((a, b) => b.dataSinistro.localeCompare(a.dataSinistro)),
+    [avarias.items, filterObra, filterPrefixo],
   );
 
   // ── Toggle expand ──
@@ -318,6 +323,38 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
           </div>
         }
       />
+
+      {/* Filtros */}
+      <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-wrap gap-4 items-end shadow-sm">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Obra</label>
+          <FilterSelect
+            value={filterObra}
+            onChange={setFilterObra}
+            placeholder="Todas"
+            options={obras.map((o) => ({ value: o, label: o }))}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Prefixo</label>
+          <FilterSelect
+            value={filterPrefixo}
+            onChange={setFilterPrefixo}
+            placeholder="Todos"
+            options={prefixos.map((p) => ({ value: p, label: p }))}
+          />
+        </div>
+
+        {(filterObra || filterPrefixo) && (
+          <button
+            onClick={() => { setFilterObra(''); setFilterPrefixo(''); }}
+            className="h-[38px] px-3 flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+          >
+            <X size={13} /> Limpar
+          </button>
+        )}
+      </div>
 
       {/* Tabela */}
       {avarias.loading ? (
