@@ -2,7 +2,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { format, getDaysInMonth, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Download, X, Clock, AlertTriangle } from 'lucide-react';
-import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao } from '../../types';
+import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
 import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository } from '../../services';
@@ -62,6 +62,8 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const [filterObra, setFilterObra]     = useState('');
   const [filterFamily, setFilterFamily] = useState('');
   const [filterStatus, setFilterStatus] = useState<DisponibilidadeStatus | ''>('');
+  const [filterManutencao, setFilterManutencao] = useState<'' | 'sim' | 'nao'>('');
+  const [filterSituacao, setFilterSituacao] = useState<SituacaoEquipamento | ''>('');
   const [editing, setEditing]           = useState<{ prefixo: string; date: string } | null>(null);
   const [hoveredRow, setHoveredRow]     = useState<string | null>(null);
   const [timeDraft, setTimeDraft]       = useState<{ horaInicio: string; horaFim: string }>({ horaInicio: '', horaFim: '' });
@@ -126,12 +128,18 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
     return activeRegistros
       .filter((r) => !filterObra || r.obra === filterObra)
       .filter((r) => !filterFamily || eqMap.get(r.prefixo)?.familia === filterFamily)
+      .filter((r) => !filterSituacao || r.situacao === filterSituacao)
       .filter((r) => {
         if (!filterStatus) return true;
         return days.some((d) => recordMap.get(`${r.prefixo}||${d}`) === filterStatus);
       })
+      .filter((r) => {
+        if (!filterManutencao) return true;
+        const houveM = days.some((d) => recordMap.get(`${r.prefixo}||${d}`) === 'M');
+        return filterManutencao === 'sim' ? houveM : !houveM;
+      })
       .sort((a, b) => a.prefixo.localeCompare(b.prefixo));
-  }, [activeRegistros, filterObra, filterFamily, filterStatus, days, recordMap, eqMap]);
+  }, [activeRegistros, filterObra, filterFamily, filterStatus, filterManutencao, filterSituacao, days, recordMap, eqMap]);
 
   /* ── Auto-cópia: preenche do último registro até hoje (uma vez por mount) ─
    * Cobre o buraco de dias sem abrir o sistema — sem isso, uma semana de
@@ -501,9 +509,37 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
           />
         </div>
 
-        {(filterObra || filterFamily || filterStatus) && (
+        {/* Houve manutenção? */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Houve manutenção?</label>
+          <FilterSelect
+            value={filterManutencao}
+            onChange={(v) => setFilterManutencao(v as 'sim' | 'nao' | '')}
+            placeholder="Todos"
+            options={[
+              { value: 'sim', label: 'Sim' },
+              { value: 'nao', label: 'Não' },
+            ]}
+          />
+        </div>
+
+        {/* Situação */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Situação</label>
+          <FilterSelect
+            value={filterSituacao}
+            onChange={(v) => setFilterSituacao(v as SituacaoEquipamento | '')}
+            placeholder="Todas"
+            options={[
+              { value: 'Mobilizado', label: 'Mobilizado' },
+              { value: 'Desmobilizado', label: 'Desmobilizado' },
+            ]}
+          />
+        </div>
+
+        {(filterObra || filterFamily || filterStatus || filterManutencao || filterSituacao) && (
           <button
-            onClick={() => { setFilterObra(''); setFilterFamily(''); setFilterStatus(''); }}
+            onClick={() => { setFilterObra(''); setFilterFamily(''); setFilterStatus(''); setFilterManutencao(''); setFilterSituacao(''); }}
             className="h-[38px] px-3 flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
           >
             <X size={13} /> Limpar
