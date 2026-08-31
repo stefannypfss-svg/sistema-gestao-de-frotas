@@ -568,7 +568,7 @@ export function DashboardView({ registros, equipments }: Props) {
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-white">
-                  {['Prefixo', 'Família', 'Localização', 'Situação', 'Valor Locação', 'Data Mobilização', 'Data Desmobilização', 'Observação'].map((h) => (
+                  {['Prefixo', 'Família', 'Localização', 'Situação', 'Status', 'Data Mobilização', 'Data Desmobilização', 'Observação'].map((h) => (
                     <th key={h} className="px-6 py-4 text-[11px] font-medium text-gray-500 uppercase tracking-[0.05em] border-b border-gray-50">{h}</th>
                   ))}
                 </tr>
@@ -576,6 +576,8 @@ export function DashboardView({ registros, equipments }: Props) {
               <tbody className="divide-y divide-gray-50">
                 {filteredActive.map((r) => {
                   const eq = eqMap.get(r.prefixo);
+                  const dispStatus = dispStatusPorPrefixo.get(r.prefixo);
+                  const dispCfg = dispStatus ? DISP_STATUS_CONFIG[dispStatus] : null;
                   return (
                     <tr key={r.id} className="hover:bg-brand-light transition-colors">
                       <td className="px-6 py-4 text-[13px] font-medium text-brand">{r.prefixo}</td>
@@ -587,8 +589,12 @@ export function DashboardView({ registros, equipments }: Props) {
                       </td>
                       <td className="px-6 py-4 text-[13px] text-gray-700 font-medium">{r.obra || '—'}</td>
                       <td className="px-6 py-4"><SituacaoBadge situacao={r.situacao} /></td>
-                      <td className="px-6 py-4 text-[13px] font-medium text-gray-900">
-                        {eq?.valorLocacao ? formatBRL(eq.valorLocacao) : '—'}
+                      <td className="px-6 py-4">
+                        {dispCfg ? (
+                          <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium', dispCfg.bg, dispCfg.text)}>
+                            {dispCfg.label}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td className="px-6 py-4 text-[12px] text-gray-500">{formatDate(r.dataMobilizacao)}</td>
                       <td className="px-6 py-4 text-[12px] text-gray-500">{formatDate(r.dataDesmobilizacao)}</td>
