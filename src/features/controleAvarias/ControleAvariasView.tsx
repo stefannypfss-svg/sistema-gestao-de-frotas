@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, X, Check, Download } from 'lucide-react';
 import {
   Equipment, Work, AvariaIncidente, AvariaMaterial,
-  AvaliacaoCortezEngenharia,
+  AvaliacaoCortezEngenharia, InseridoEmMedicao,
 } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { PageHeader, Button, StateMessage, FilterSelect } from '../../components/ui';
@@ -66,6 +66,21 @@ const AVALIACAO_OPTIONS: AvaliacaoCortezEngenharia[] = [
   'Reprovado',
 ];
 
+// ─── Inserido em medição config ─────────────────────────────────────
+
+const INSERIDO_MEDICAO_CONFIG: Record<InseridoEmMedicao, { label: string; bg: string; text: string }> = {
+  'Sim, todos':                { label: 'Sim, todos',              bg: 'bg-green-100',  text: 'text-green-800'  },
+  'Apenas valor material':     { label: 'Apenas valor material',   bg: 'bg-blue-100',   text: 'text-blue-800'   },
+  'Apenas dias descontados':   { label: 'Apenas dias descontados', bg: 'bg-violet-100', text: 'text-violet-700' },
+  '':                          { label: 'Nenhuma',                 bg: 'bg-red-100',    text: 'text-red-700'    },
+};
+
+const INSERIDO_MEDICAO_OPTIONS: InseridoEmMedicao[] = [
+  'Sim, todos',
+  'Apenas valor material',
+  'Apenas dias descontados',
+];
+
 // ─── Form types ──────────────────────────────────────────────────────
 
 interface MatForm {
@@ -87,6 +102,7 @@ interface IncidenteForm {
   dataEnvioRelatorio: string;
   avaliacaoCortez: AvaliacaoCortezEngenharia;
   valorAprovado: string;
+  inseridoEmMedicao: InseridoEmMedicao;
   observacao: string;
 }
 
@@ -98,7 +114,7 @@ const emptyForm = (): IncidenteForm => ({
   prefixo: '', obra: '', dataSinistro: '', descricao: '',
   materiais: [emptyMat()],
   relatorioEnviado: '', dataEnvioRelatorio: '',
-  avaliacaoCortez: 'Pendente', valorAprovado: '', observacao: '',
+  avaliacaoCortez: 'Pendente', valorAprovado: '', inseridoEmMedicao: '', observacao: '',
 });
 
 function formToIncidente(f: IncidenteForm, id: string): AvariaIncidente {
@@ -120,6 +136,7 @@ function formToIncidente(f: IncidenteForm, id: string): AvariaIncidente {
     dataEnvioRelatorio: f.dataEnvioRelatorio,
     avaliacaoCortez: f.avaliacaoCortez,
     valorAprovado: f.valorAprovado !== '' ? Number(f.valorAprovado) : null,
+    inseridoEmMedicao: f.inseridoEmMedicao,
     observacao: f.observacao,
   };
 }
@@ -144,6 +161,7 @@ function incidenteToForm(inc: AvariaIncidente): IncidenteForm {
     dataEnvioRelatorio: inc.dataEnvioRelatorio,
     avaliacaoCortez: inc.avaliacaoCortez,
     valorAprovado: inc.valorAprovado !== null ? String(inc.valorAprovado) : '',
+    inseridoEmMedicao: inc.inseridoEmMedicao ?? '',
     observacao: inc.observacao,
   };
 }
@@ -166,7 +184,7 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
       'Material', 'Qtd', 'Fator', 'Valor Unitário',
       'Subtotal Material', '% Bitributação', 'Total Material Gasto',
       'Relatório Enviado', 'Data Envio', 'Avaliação Cortez Engenharia',
-      'Valor Aprovado', 'Observação',
+      'Valor Aprovado', 'Inserido em Medição', 'Observação',
     ];
 
     const dataRows: string[][] = [];
@@ -176,7 +194,7 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
           inc.prefixo, inc.obra, fmtDate(inc.dataSinistro), inc.descricao,
           '', '', '', '', '', '', '',
           inc.relatorioEnviado, fmtDate(inc.dataEnvioRelatorio), inc.avaliacaoCortez,
-          inc.valorAprovado !== null ? String(inc.valorAprovado) : '', inc.observacao,
+          inc.valorAprovado !== null ? String(inc.valorAprovado) : '', inc.inseridoEmMedicao, inc.observacao,
         ]);
       } else {
         for (const m of inc.materiais) {
@@ -193,7 +211,7 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
             total !== null ? String(total).replace('.', ',') : '',
             inc.relatorioEnviado, fmtDate(inc.dataEnvioRelatorio), inc.avaliacaoCortez,
             inc.valorAprovado !== null ? String(inc.valorAprovado).replace('.', ',') : '',
-            inc.observacao,
+            inc.inseridoEmMedicao, inc.observacao,
           ]);
         }
       }
@@ -378,6 +396,7 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
                   <th className={thCls}>Data Envio</th>
                   <th className={cn(thCls, 'min-w-[160px]')}>Avaliação</th>
                   <th className={thCls}>Valor Aprovado</th>
+                  <th className={cn(thCls, 'min-w-[160px]')}>Inserido em Medição</th>
                   <th className={cn(thCls, 'min-w-[160px]')}>Observação</th>
                   <th className={thCls} />
                 </tr>
@@ -389,7 +408,8 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
                     const t = calcTotalGasto(calcSubtotal(m), m.percentualBitributacao);
                     return s + (t ?? 0);
                   }, 0);
-                  const avcfg = AVALIACAO_CONFIG[inc.avaliacaoCortez];
+                  const avcfg = AVALIACAO_CONFIG[inc.avaliacaoCortez] ?? AVALIACAO_CONFIG[''];
+                  const medcfg = INSERIDO_MEDICAO_CONFIG[inc.inseridoEmMedicao] ?? INSERIDO_MEDICAO_CONFIG[''];
 
                   return (
                     <React.Fragment key={inc.id}>
@@ -437,6 +457,11 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
                           </span>
                         </td>
                         <td className={tdCls}>{inc.valorAprovado !== null ? fmtBRL(inc.valorAprovado) : '—'}</td>
+                        <td className={tdCls}>
+                          <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium', medcfg.bg, medcfg.text)}>
+                            {medcfg.label}
+                          </span>
+                        </td>
                         <td className={cn(tdCls, 'max-w-[200px]')}>
                           <span className="line-clamp-1 text-gray-500">{inc.observacao || '—'}</span>
                         </td>
@@ -457,7 +482,7 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
                       {/* ── Expanded materials ── */}
                       {isExp && (
                         <tr className="border-b border-gray-100 bg-blue-50/20">
-                          <td colSpan={13} className="px-4 pb-3 pt-1">
+                          <td colSpan={14} className="px-4 pb-3 pt-1">
                             <table className="w-full border-collapse text-left rounded-xl overflow-hidden">
                               <thead>
                                 <tr className="bg-gray-100">
@@ -672,6 +697,14 @@ export function ControleAvariasView({ equipments, works, avarias }: Props) {
                     <input type="number" min={0} step="0.01" value={form.valorAprovado}
                       onChange={(e) => setField('valorAprovado', e.target.value)}
                       placeholder="0,00" className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-1 md:col-span-2">
+                    <label className="text-[11px] text-gray-500 font-medium">Inserido em Medição?</label>
+                    <select value={form.inseridoEmMedicao} onChange={(e) => setField('inseridoEmMedicao', e.target.value as InseridoEmMedicao)}
+                      className={inputCls}>
+                      <option value="">—</option>
+                      {INSERIDO_MEDICAO_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
