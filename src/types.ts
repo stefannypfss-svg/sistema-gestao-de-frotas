@@ -114,6 +114,13 @@ export type AvaliacaoCortezEngenharia =
   | 'Reprovado'
   | '';
 
+/** Se/como a avaria foi inserida na medição. */
+export type InseridoEmMedicao =
+  | 'Sim, todos'
+  | 'Apenas valor material'
+  | 'Apenas dias descontados'
+  | '';
+
 export interface AvariaMaterial {
   id: string;
   material: string;
@@ -134,6 +141,7 @@ export interface AvariaIncidente {
   dataEnvioRelatorio: string; // YYYY-MM-DD
   avaliacaoCortez: AvaliacaoCortezEngenharia;
   valorAprovado: number | null;
+  inseridoEmMedicao: InseridoEmMedicao;
   observacao: string;
 }
 
