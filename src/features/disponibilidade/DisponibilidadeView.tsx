@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { format, getDaysInMonth, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, X, Clock, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Download, X, Clock, AlertTriangle, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
@@ -66,6 +66,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const [filterSituacao, setFilterSituacao] = useState<SituacaoEquipamento | ''>('');
   const [filterDays, setFilterDays]     = useState<Set<string>>(new Set());
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
+  const [sortPctDir, setSortPctDir]     = useState<'asc' | 'desc' | null>(null);
   const [editing, setEditing]           = useState<{ prefixo: string; date: string } | null>(null);
   const [hoveredRow, setHoveredRow]     = useState<string | null>(null);
   const [timeDraft, setTimeDraft]       = useState<{ horaInicio: string; horaFim: string }>({ horaInicio: '', horaFim: '' });
@@ -145,15 +146,39 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
       .filter((r) => !filterSituacao || r.situacao === filterSituacao)
       .filter((r) => {
         if (!filterStatus) return true;
-        return days.some((d) => recordMap.get(`${r.prefixo}||${d}`) === filterStatus);
+        return visibleDays.some((d) => recordMap.get(`${r.prefixo}||${d}`) === filterStatus);
       })
       .filter((r) => {
         if (!filterManutencao) return true;
-        const houveM = days.some((d) => recordMap.get(`${r.prefixo}||${d}`) === 'M');
+        const houveM = visibleDays.some((d) => recordMap.get(`${r.prefixo}||${d}`) === 'M');
         return filterManutencao === 'sim' ? houveM : !houveM;
       })
       .sort((a, b) => a.prefixo.localeCompare(b.prefixo));
-  }, [activeRegistros, filterObra, filterFamily, filterStatus, filterManutencao, filterSituacao, days, recordMap, eqMap]);
+  }, [activeRegistros, filterObra, filterFamily, filterStatus, filterManutencao, filterSituacao, visibleDays, recordMap, eqMap]);
+
+  // Só entram no denominador dias que já têm status lançado — dias futuros
+  // (ou ainda não preenchidos) não contam contra o equipamento, senão o %
+  // despenca artificialmente pra qualquer mês em andamento.
+  function calcPctDisponibilidade(prefixo: string): number {
+    const diasComRegistro = visibleDays.filter((d) => recordMap.has(`${prefixo}||${d}`));
+    if (diasComRegistro.length === 0) return 0;
+    const diasOk = diasComRegistro.filter((d) => {
+      const s = recordMap.get(`${prefixo}||${d}`);
+      return s === 'EO' || s === 'AO' || s === 'UG';
+    }).length;
+    return Math.round((diasOk / diasComRegistro.length) * 100);
+  }
+
+  // Ordenação pela coluna fixa "Disp. %" — independente da ordem alfabética
+  // padrão de `filteredRows`, só entra em ação quando o usuário clica no cabeçalho.
+  const displayRows = useMemo(() => {
+    if (!sortPctDir) return filteredRows;
+    return [...filteredRows].sort((a, b) => {
+      const diff = calcPctDisponibilidade(a.prefixo) - calcPctDisponibilidade(b.prefixo);
+      return sortPctDir === 'asc' ? diff : -diff;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredRows, visibleDays, recordMap, sortPctDir]);
 
   /* ── Auto-cópia: preenche do último registro até hoje (uma vez por mount) ─
    * Cobre o buraco de dias sem abrir o sistema — sem isso, uma semana de
@@ -641,7 +666,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
           <div className="overflow-x-auto">
             <table
               className="text-left border-collapse"
-              style={{ minWidth: `${88 + 200 + visibleDays.length * 46}px` }}
+              style={{ minWidth: `${88 + 200 + 84 + visibleDays.length * 46}px` }}
             >
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -652,6 +677,23 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                   {/* Coluna EQUIPAMENTO */}
                   <th className="sticky left-[88px] z-20 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[200px] min-w-[200px]">
                     Equipamento
+                  </th>
+                  {/* Coluna % DISPONIBILIDADE — clicável, alterna asc/desc/padrão */}
+                  <th
+                    onClick={() => setSortPctDir((d) => (d === null ? 'asc' : d === 'asc' ? 'desc' : null))}
+                    title="Ordenar por % de disponibilidade"
+                    className="sticky left-[288px] z-20 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[84px] min-w-[84px] text-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                  >
+                    <span className="inline-flex items-center justify-center gap-1">
+                      Disp. %
+                      {sortPctDir === 'asc' ? (
+                        <ArrowUp size={11} className="text-brand" />
+                      ) : sortPctDir === 'desc' ? (
+                        <ArrowDown size={11} className="text-brand" />
+                      ) : (
+                        <ArrowUpDown size={11} className="text-gray-300" />
+                      )}
+                    </span>
                   </th>
                   {/* Colunas de dia */}
                   {visibleDays.map((d) => {
@@ -673,9 +715,12 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
               </thead>
 
               <tbody className="divide-y divide-gray-50">
-                {filteredRows.map((r) => {
+                {displayRows.map((r) => {
                   const eq         = eqMap.get(r.prefixo);
                   const isRowActive = hoveredRow === r.prefixo || editing?.prefixo === r.prefixo;
+
+                  const pctDisponibilidade = calcPctDisponibilidade(r.prefixo);
+                  const pctBaixo = pctDisponibilidade < 80;
 
                   return (
                     <tr
@@ -703,6 +748,20 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                       >
                         <span className="text-[11px] text-gray-700 line-clamp-1 leading-snug hover:underline">
                           {eq?.descricao ?? r.prefixo}
+                        </span>
+                      </td>
+                      {/* % Disponibilidade (EO + AO + UG sobre o total de dias em tela) */}
+                      <td
+                        className={cn(
+                          'sticky left-[288px] z-10 px-3 py-1 border-r border-gray-100 w-[84px] text-center transition-colors',
+                          isRowActive ? 'bg-brand/10' : 'bg-white',
+                        )}
+                      >
+                        <span className={cn(
+                          'text-[12px] font-bold',
+                          pctBaixo ? 'text-red-600' : 'text-gray-700',
+                        )}>
+                          {pctDisponibilidade}%
                         </span>
                       </td>
                       {/* Células de dia */}
