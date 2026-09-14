@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { format, getDaysInMonth, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, X, Clock, AlertTriangle } from 'lucide-react';
+import { Download, X, Clock, AlertTriangle, ChevronDown } from 'lucide-react';
 import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
@@ -64,6 +64,8 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const [filterStatus, setFilterStatus] = useState<DisponibilidadeStatus | ''>('');
   const [filterManutencao, setFilterManutencao] = useState<'' | 'sim' | 'nao'>('');
   const [filterSituacao, setFilterSituacao] = useState<SituacaoEquipamento | ''>('');
+  const [filterDays, setFilterDays]     = useState<Set<string>>(new Set());
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const [editing, setEditing]           = useState<{ prefixo: string; date: string } | null>(null);
   const [hoveredRow, setHoveredRow]     = useState<string | null>(null);
   const [timeDraft, setTimeDraft]       = useState<{ horaInicio: string; horaFim: string }>({ horaInicio: '', horaFim: '' });
@@ -77,6 +79,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
 
   const hasCopiedRef = useRef(false);
   const popoverRef   = useRef<HTMLDivElement>(null);
+  const dayPickerRef = useRef<HTMLDivElement>(null);
 
   /* ── Dados derivados ──────────────────────────────────────────── */
 
@@ -111,6 +114,17 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
       format(new Date(filterYear, filterMonth - 1, i + 1), 'yyyy-MM-dd'),
     );
   }, [filterYear, filterMonth]);
+
+  // Seleção de dias específicos limpa ao trocar de mês/ano — os dias
+  // marcados no mês anterior não existem (ou significam outra coisa) no novo.
+  useEffect(() => {
+    setFilterDays(new Set());
+  }, [filterYear, filterMonth]);
+
+  const visibleDays = useMemo(
+    () => (filterDays.size > 0 ? days.filter((d) => filterDays.has(d)) : days),
+    [days, filterDays],
+  );
 
   const recordMap = useMemo(() => {
     const m = new Map<string, DisponibilidadeStatus>();
@@ -220,6 +234,17 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [editing]);
+
+  useEffect(() => {
+    if (!dayPickerOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (dayPickerRef.current && !dayPickerRef.current.contains(e.target as Node)) {
+        setDayPickerOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [dayPickerOpen]);
 
   /* ── Salvar status ─────────────────────────────────────────────── */
 
@@ -379,12 +404,12 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
 
   const exportCSV = () => {
     const mesLabel = format(new Date(filterYear, filterMonth - 1, 1), 'MMMM_yyyy', { locale: ptBR });
-    const headers  = ['Prefixo', 'Equipamento', 'Obra', ...days.map((d) => format(new Date(d + 'T12:00:00'), 'dd/MM'))];
+    const headers  = ['Prefixo', 'Equipamento', 'Obra', ...visibleDays.map((d) => format(new Date(d + 'T12:00:00'), 'dd/MM'))];
     const dataRows = filteredRows.map((r) => [
       r.prefixo,
       eqMap.get(r.prefixo)?.descricao ?? '',
       r.obra,
-      ...days.map((d) => recordMap.get(`${r.prefixo}||${d}`) ?? ''),
+      ...visibleDays.map((d) => recordMap.get(`${r.prefixo}||${d}`) ?? ''),
     ]);
     const csv  = [headers, ...dataRows].map((row) => row.join(';')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -476,6 +501,65 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
           </select>
         </div>
 
+        {/* Dias */}
+        <div className="flex flex-col gap-1.5 relative" ref={dayPickerRef}>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Dias</label>
+          <button
+            type="button"
+            onClick={() => setDayPickerOpen((o) => !o)}
+            className={cn(
+              'h-[38px] px-3 flex items-center gap-1.5 text-[13px] bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors min-w-[110px]',
+              filterDays.size > 0 ? 'text-gray-900 font-medium' : 'text-gray-400',
+            )}
+          >
+            {filterDays.size > 0 ? `${filterDays.size} selecionado${filterDays.size > 1 ? 's' : ''}` : 'Todos'}
+            <ChevronDown size={14} className="text-gray-400 shrink-0 ml-auto" />
+          </button>
+
+          {dayPickerOpen && (
+            <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-2 w-[240px]">
+              <div className="flex items-center justify-between px-1 pb-1.5 mb-1.5 border-b border-gray-100">
+                <button
+                  onClick={() => setFilterDays(new Set(days))}
+                  className="text-[11px] font-medium text-brand hover:underline"
+                >
+                  Selecionar todos
+                </button>
+                <button
+                  onClick={() => setFilterDays(new Set())}
+                  className="text-[11px] text-gray-400 hover:text-gray-600"
+                >
+                  Limpar
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 max-h-[220px] overflow-y-auto">
+                {days.map((d) => {
+                  const dayNum = format(new Date(d + 'T12:00:00'), 'dd');
+                  const isSelected = filterDays.has(d);
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        setFilterDays((prev) => {
+                          const next = new Set(prev);
+                          next.has(d) ? next.delete(d) : next.add(d);
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        'h-7 flex items-center justify-center text-[11px] font-medium rounded-md transition-colors',
+                        isSelected ? 'bg-brand text-white' : 'text-gray-600 hover:bg-gray-100',
+                      )}
+                    >
+                      {dayNum}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Obra */}
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Obra / Localização</label>
@@ -537,9 +621,9 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
           />
         </div>
 
-        {(filterObra || filterFamily || filterStatus || filterManutencao || filterSituacao) && (
+        {(filterObra || filterFamily || filterStatus || filterManutencao || filterSituacao || filterDays.size > 0) && (
           <button
-            onClick={() => { setFilterObra(''); setFilterFamily(''); setFilterStatus(''); setFilterManutencao(''); setFilterSituacao(''); }}
+            onClick={() => { setFilterObra(''); setFilterFamily(''); setFilterStatus(''); setFilterManutencao(''); setFilterSituacao(''); setFilterDays(new Set()); }}
             className="h-[38px] px-3 flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
           >
             <X size={13} /> Limpar
@@ -557,7 +641,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
           <div className="overflow-x-auto">
             <table
               className="text-left border-collapse"
-              style={{ minWidth: `${88 + 200 + days.length * 46}px` }}
+              style={{ minWidth: `${88 + 200 + visibleDays.length * 46}px` }}
             >
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -570,7 +654,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                     Equipamento
                   </th>
                   {/* Colunas de dia */}
-                  {days.map((d) => {
+                  {visibleDays.map((d) => {
                     const isToday = d === TODAY_STR;
                     const dayNum  = format(new Date(d + 'T12:00:00'), 'dd');
                     return (
@@ -622,7 +706,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                         </span>
                       </td>
                       {/* Células de dia */}
-                      {days.map((d) => {
+                      {visibleDays.map((d) => {
                         const id        = `${r.prefixo}||${d}`;
                         const status    = recordMap.get(id);
                         const record    = fullRecordMap.get(id);
