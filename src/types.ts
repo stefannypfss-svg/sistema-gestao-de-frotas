@@ -196,5 +196,24 @@ export interface EventoManutencao {
   updatedAt: string;
 }
 
+/** Cargo da equipe de mão de obra (oficina). */
+export type CargoMaoDeObra = 'Mecânico' | 'Eletricista' | 'Auxiliar';
+
+/** Obra/unidade acompanhada na tela de Mão de Obra. */
+export type ObraMaoDeObra = 'Dom Inocêncio' | 'Esquina dos Ventos' | 'Central de Equipamentos Rental';
+
+/** Quantidade e nomes de um cargo, numa obra e mês/ano específicos. */
+export interface MaoDeObraRegistro {
+  /** ID composto: `${obra}||${cargo}||${ano}||${mes}` (mês 1-12) */
+  id: string;
+  obra: ObraMaoDeObra;
+  cargo: CargoMaoDeObra;
+  ano: number;
+  mes: number; // 1-12
+  quantidade: number;
+  /** Nomes das pessoas — ocultos por padrão na tela, só aparecem sob clique. */
+  nomes: string[];
+}
+
 /** Entidades que possuem identificador único. */
 export type Identifiable = Equipment | Work | Allocation;
