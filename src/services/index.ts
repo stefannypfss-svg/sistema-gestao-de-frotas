@@ -8,7 +8,7 @@
  * Trocar de backend = trocar as instâncias abaixo. Nada mais no app muda.
  */
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
-import { Equipment, Work, Allocation, EquipamentoObra, TabelaLocacao, DisponibilidadeRecord, AvariaIncidente, EventoManutencao } from '../types';
+import { Equipment, Work, Allocation, EquipamentoObra, TabelaLocacao, DisponibilidadeRecord, AvariaIncidente, EventoManutencao, MaoDeObraRegistro } from '../types';
 import { Repository } from './repository';
 import { LocalStorageRepository } from './localStorageRepository';
 import { FirestoreRepository } from './firestoreRepository';
@@ -25,6 +25,7 @@ export const COLLECTIONS = {
   disponibilidade: 'disponibilidade',
   avarias: 'avarias',
   eventosManutencao: 'eventos_manutencao',
+  maoDeObra: 'mao_de_obra',
 } as const;
 
 /** Incrementar força o re-seed do localStorage de equipamentos. */
@@ -53,6 +54,7 @@ const getTabelaLocacaoKey = (t: TabelaLocacao) => t.id;
 const getDisponibilidadeKey = (r: DisponibilidadeRecord) => r.id;
 const getAvariaKey = (a: AvariaIncidente) => a.id;
 const getEventoManutencaoKey = (e: EventoManutencao) => e.id;
+const getMaoDeObraKey = (r: MaoDeObraRegistro) => r.id;
 
 let equipmentRepository: Repository<Equipment>;
 let workRepository: Repository<Work>;
@@ -62,6 +64,7 @@ let tabelaLocacaoRepository: Repository<TabelaLocacao>;
 let disponibilidadeRepository: Repository<DisponibilidadeRecord>;
 let avariaRepository: Repository<AvariaIncidente>;
 let eventoManutencaoRepository: Repository<EventoManutencao>;
+let maoDeObraRepository: Repository<MaoDeObraRegistro>;
 
 if (isFirebaseConfigured) {
   equipmentRepository = new FirestoreRepository<Equipment>(
@@ -111,6 +114,11 @@ if (isFirebaseConfigured) {
     getEventoManutencaoKey,
     'dataInicio',
   );
+  maoDeObraRepository = new FirestoreRepository<MaoDeObraRegistro>(
+    db,
+    COLLECTIONS.maoDeObra,
+    getMaoDeObraKey,
+  );
 
   // Semeia uma única vez (idempotente). Não bloqueia a renderização.
   void seedFirestore(db, COLLECTIONS).catch((e) =>
@@ -157,6 +165,11 @@ if (isFirebaseConfigured) {
     getEventoManutencaoKey,
     [],
   );
+  maoDeObraRepository = new LocalStorageRepository<MaoDeObraRegistro>(
+    'cortez_mao_de_obra',
+    getMaoDeObraKey,
+    [],
+  );
   equipamentoObraRepository = new LocalStorageRepository<EquipamentoObra>(
     'cortez_equip_obra',
     getEquipObraKey,
@@ -180,7 +193,7 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository, tabelaLocacaoRepository, disponibilidadeRepository, avariaRepository, eventoManutencaoRepository };
+export { equipmentRepository, workRepository, allocationRepository, equipamentoObraRepository, tabelaLocacaoRepository, disponibilidadeRepository, avariaRepository, eventoManutencaoRepository, maoDeObraRepository };
 
 /**
  * Leitura pontual (não-live) de `disponibilidade` por equipamento e

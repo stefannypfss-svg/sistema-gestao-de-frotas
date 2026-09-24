@@ -16,11 +16,12 @@ import { TabelaLocacaoView } from './features/tabelaLocacao/TabelaLocacaoView';
 import { DisponibilidadeView } from './features/disponibilidade/DisponibilidadeView';
 import { ManutencaoView } from './features/manutencao/ManutencaoView';
 import { ControleAvariasView } from './features/controleAvarias/ControleAvariasView';
+import { MaoDeObraView } from './features/maoDeObra/MaoDeObraView';
 import { LoginView } from './features/auth/LoginView';
 
 function AppShell() {
   const [activeTab, setActiveTab] = React.useState<TabId>('dashboard');
-  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, avarias, isLoading } = useStore();
+  const { equipments, works, allocations, equipamentoObra, tabelaLocacao, avarias, maoDeObra, isLoading } = useStore();
   const { logout } = useAuth();
 
   // `disponibilidade` é assinada sob demanda (ver useDisponibilidadeLazy) e
@@ -113,6 +114,9 @@ function AppShell() {
                 tabelaLocacao={tabelaLocacao}
                 equipamentoObra={equipamentoObra}
               />
+            )}
+            {activeTab === 'mao-de-obra' && (
+              <MaoDeObraView maoDeObra={maoDeObra} equipamentoObra={equipamentoObra} />
             )}
           </motion.div>
         </AnimatePresence>
