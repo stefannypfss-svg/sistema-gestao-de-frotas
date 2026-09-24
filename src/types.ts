@@ -163,7 +163,7 @@ export interface DisponibilidadeRecord {
 }
 
 /** Classificação de um evento de manutenção. */
-export type TipoManutencao = 'Corretiva' | 'Preventiva' | 'Revisão' | 'Sinistro';
+export type TipoManutencao = 'Corretiva' | 'Preventiva' | 'Revisão' | 'Avaria';
 export type SistemaManutencao = 'Motor' | 'Hidráulico' | 'Elétrico' | 'Rodante' | 'Estrutura' | 'Outro';
 
 /**

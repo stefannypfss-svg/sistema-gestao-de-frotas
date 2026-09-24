@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { format, getDaysInMonth, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, X, Clock, AlertTriangle, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
-import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento } from '../../types';
+import { Download, X, Clock, AlertTriangle, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown, Info } from 'lucide-react';
+import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento, EventoManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
-import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository } from '../../services';
+import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository, eventoManutencaoRepository } from '../../services';
+import { construirInfoExclusao, diaMDeveDescontar } from '../../domain/forecast';
 import {
   previewVinculoM,
   reconciliarM,
@@ -77,10 +78,27 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const [formNota, setFormNota]         = useState('');
   const [liberarPrompt, setLiberarPrompt] = useState<{ prefixo: string; data: string } | null>(null);
   const [historyDrawer, setHistoryDrawer] = useState<{ prefixo: string; descricao: string } | null>(null);
+  const [indicadorInfoOpen, setIndicadorInfoOpen] = useState(false);
 
   const hasCopiedRef = useRef(false);
   const popoverRef   = useRef<HTMLDivElement>(null);
   const dayPickerRef = useRef<HTMLDivElement>(null);
+  const indicadorInfoRef = useRef<HTMLDivElement>(null);
+
+  // Leitura pontual da coleção inteira, não filtrada pelo mês em tela: o %
+  // de disponibilidade precisa saber o `tipo` (Avaria/Preventiva/...) de
+  // qualquer manutenção vinculada, mesmo uma que começou antes do mês
+  // aberto — mesmo padrão já usado na tela de Previsão de Receitas.
+  const [eventosManutencao, setEventosManutencao] = useState<EventoManutencao[]>([]);
+  useEffect(() => {
+    let cancelado = false;
+    eventoManutencaoRepository.list().then((todos) => {
+      if (!cancelado) setEventosManutencao(todos);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   /* ── Dados derivados ──────────────────────────────────────────── */
 
@@ -156,15 +174,34 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
       .sort((a, b) => a.prefixo.localeCompare(b.prefixo));
   }, [activeRegistros, filterObra, filterFamily, filterStatus, filterManutencao, filterSituacao, visibleDays, recordMap, eqMap]);
 
+  // Mesma info de exclusão usada na Previsão de Receitas — decide, por dia
+  // M, se a manutenção conta contra o equipamento (ver diaMDeveDescontar).
+  const infoExclusao = useMemo(
+    () => construirInfoExclusao(disponibilidade.items, eventosManutencao),
+    [disponibilidade.items, eventosManutencao],
+  );
+
   // Só entram no denominador dias que já têm status lançado — dias futuros
   // (ou ainda não preenchidos) não contam contra o equipamento, senão o %
   // despenca artificialmente pra qualquer mês em andamento.
+  //
+  // Dentro dos dias com registro: EO/AO/UG sempre contam a favor. Dias M
+  // contam a favor também quando a manutenção é Avaria (nunca desconta) ou
+  // Preventiva dentro da carência de 3 dias — mesma regra de
+  // `diaMDeveDescontar` usada no cálculo de receita.
   function calcPctDisponibilidade(prefixo: string): number {
     const diasComRegistro = visibleDays.filter((d) => recordMap.has(`${prefixo}||${d}`));
     if (diasComRegistro.length === 0) return 0;
     const diasOk = diasComRegistro.filter((d) => {
       const s = recordMap.get(`${prefixo}||${d}`);
-      return s === 'EO' || s === 'AO' || s === 'UG';
+      if (s === 'EO' || s === 'AO' || s === 'UG') return true;
+      if (s === 'M') {
+        const chave = `${prefixo}||${d}`;
+        const tipo = infoExclusao.tipoEfetivoPorDia.get(chave) ?? null;
+        const diaBloco = infoExclusao.diaBlocoPorDia.get(chave) ?? 1;
+        return !diaMDeveDescontar(tipo, diaBloco);
+      }
+      return false;
     }).length;
     return Math.round((diasOk / diasComRegistro.length) * 100);
   }
@@ -270,6 +307,17 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [dayPickerOpen]);
+
+  useEffect(() => {
+    if (!indicadorInfoOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (indicadorInfoRef.current && !indicadorInfoRef.current.contains(e.target as Node)) {
+        setIndicadorInfoOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [indicadorInfoOpen]);
 
   /* ── Salvar status ─────────────────────────────────────────────── */
 
@@ -462,9 +510,40 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
         title="Disponibilidade"
         description="Status diário da frota por equipamento"
         action={
-          <Button onClick={exportCSV}>
-            <Download size={16} /> Exportar CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Explicação do indicador % Disponibilidade */}
+            <div className="relative" ref={indicadorInfoRef}>
+              <button
+                type="button"
+                onClick={() => setIndicadorInfoOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                <Info size={12} /> Como funciona o Disp. %?
+              </button>
+
+              {indicadorInfoOpen && (
+                <div className="absolute z-50 top-full right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl p-4 w-[360px] text-[12px] text-gray-600 space-y-2.5">
+                  <p className="font-semibold text-gray-800 text-[12.5px]">Indicador "% Disponibilidade"</p>
+                  <p>
+                    Percentual de dias, no período em tela, em que o equipamento ficou em uso, são considerados
+                    os seguintes status: <b>EO</b> (Em Operação), <b>AO</b> (Apoio Oficina) ou <b>UG</b> (Uso Gerencial).
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li>Só entram na conta dias que já têm status lançado, dias futuros ou ainda sem registro não contam contra o equipamento.</li>
+                    <li>Dia de manutenção (M) classificado como Avaria nunca desconta do %.</li>
+                    <li>Dia de manutenção Preventiva tem carência de 3 dias, só passa a descontar a partir do 4º dia parado.</li>
+                    <li>Qualquer outro tipo (Corretiva, Revisão ou não classificado) desconta desde o 1º dia parado.</li>
+                    <li>Abaixo de 80%, o número aparece em <span className="text-red-600 font-semibold">vermelho</span>.</li>
+                  </ul>
+                  <p className="text-gray-400 text-[11px]">Mesma regra usada no desconto de receita da tela de Previsão.</p>
+                </div>
+              )}
+            </div>
+
+            <Button onClick={exportCSV}>
+              <Download size={16} /> Exportar CSV
+            </Button>
+          </div>
         }
       />
 
@@ -480,7 +559,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
       )}
 
       {/* Legenda */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {STATUS_ORDER.map((s) => {
           const cfg = STATUS_CONFIG[s];
           return (

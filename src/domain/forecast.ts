@@ -119,9 +119,11 @@ export function computeForecast(
 }
 
 /** Info pré-processada pra decidir, por prefixo+dia, se o dia deve ser excluído da receita. */
-interface DiasExcluidosInfo {
+export interface DiasExcluidosInfo {
   statusPorDia: Map<string, DisponibilidadeRecord['status']>;
   tipoEfetivoPorDia: Map<string, string | null>;
+  /** Posição (1-based) do dia dentro do bloco de manutenção — usado pela carência da Preventiva. */
+  diaBlocoPorDia: Map<string, number>;
 }
 
 /**
@@ -130,14 +132,19 @@ interface DiasExcluidosInfo {
  * do bloco tiver `eventoId`) pros demais dias do mesmo bloco que não
  * tiverem — dado legado/não tocado pela reconciliação assume a
  * classificação do resto do bloco em vez de ficar "desconhecido".
+ *
+ * Exportada porque a tela de Disponibilidade reusa essa mesma info pra
+ * decidir se um dia M conta contra o % de disponibilidade do equipamento —
+ * regra idêntica à de exclusão de receita aqui embaixo.
  */
-function construirInfoExclusao(
+export function construirInfoExclusao(
   disponibilidade: DisponibilidadeRecord[],
   eventosManutencao: EventoManutencao[],
 ): DiasExcluidosInfo {
   const eventosPorId = new Map(eventosManutencao.map((e) => [e.id, e]));
   const statusPorDia = new Map<string, DisponibilidadeRecord['status']>();
   const tipoEfetivoPorDia = new Map<string, string | null>();
+  const diaBlocoPorDia = new Map<string, number>();
   const diasMPorPrefixo = new Map<string, DisponibilidadeRecord[]>();
 
   disponibilidade.forEach((r) => {
@@ -163,18 +170,47 @@ function construirInfoExclusao(
       const bloco = registros.slice(i, j + 1);
       const comEvento = bloco.find((r) => r.eventoId && eventosPorId.has(r.eventoId));
       const tipoDoBloco = comEvento ? eventosPorId.get(comEvento.eventoId!)!.tipo : null;
-      bloco.forEach((r) => tipoEfetivoPorDia.set(`${prefixo}||${r.data}`, tipoDoBloco));
+      bloco.forEach((r, idx) => {
+        const chave = `${prefixo}||${r.data}`;
+        tipoEfetivoPorDia.set(chave, tipoDoBloco);
+
+        // Prefere a `dataInicio` persistida no evento vinculado — continua
+        // correta mesmo quando o início real do bloco cai fora da janela de
+        // dados carregada (ex.: manutenção começou no mês anterior). Só cai
+        // pro índice local pra dado legado sem eventoId.
+        const evento = r.eventoId ? eventosPorId.get(r.eventoId) : undefined;
+        const diaBloco = evento
+          ? diasEntre(parseDateLocal(evento.dataInicio), parseDateLocal(r.data))
+          : idx + 1;
+        diaBlocoPorDia.set(chave, diaBloco);
+      });
       i = j + 1;
     }
   });
 
-  return { statusPorDia, tipoEfetivoPorDia };
+  return { statusPorDia, tipoEfetivoPorDia, diaBlocoPorDia };
 }
 
 /**
- * Conta dias, em `[inicio, fim]`, com status M (exceto tipo Sinistro) ou AO
- * — esses dias não geram receita. Nunca desconta datas futuras (depois de
- * `hoje`): se ainda não aconteceu, a projeção assume operação normal.
+ * Decide se um dia de status M conta como "indisponível" (desconta receita
+ * e o % de disponibilidade). Avaria nunca desconta — é imprevisto, não
+ * falta de disponibilidade planejada. Preventiva tem carência de 3 dias —
+ * programada, só passa a contar contra o equipamento a partir do 4º dia
+ * parado. Qualquer outro tipo (Corretiva, Revisão, não classificado)
+ * desconta desde o 1º dia, como sempre foi.
+ */
+export function diaMDeveDescontar(tipo: string | null, diaBloco: number): boolean {
+  // 'Sinistro' = grafia legada, de antes da renomeação pra 'Avaria'.
+  if (tipo === 'Avaria' || tipo === 'Sinistro') return false;
+  if (tipo === 'Preventiva') return diaBloco > 3;
+  return true;
+}
+
+/**
+ * Conta dias, em `[inicio, fim]`, com status M (que a regra de desconto
+ * mande contar) ou AO — esses dias não geram receita. Nunca desconta datas
+ * futuras (depois de `hoje`): se ainda não aconteceu, a projeção assume
+ * operação normal.
  */
 function contarDiasExcluidos(
   prefixo: string,
@@ -192,8 +228,10 @@ function contarDiasExcluidos(
     const status = info.statusPorDia.get(chave);
     if (status === 'AO') {
       count++;
-    } else if (status === 'M' && info.tipoEfetivoPorDia.get(chave) !== 'Sinistro') {
-      count++;
+    } else if (status === 'M') {
+      const tipo = info.tipoEfetivoPorDia.get(chave) ?? null;
+      const diaBloco = info.diaBlocoPorDia.get(chave) ?? 1;
+      if (diaMDeveDescontar(tipo, diaBloco)) count++;
     }
   }
   return count;
@@ -209,10 +247,12 @@ function contarDiasExcluidos(
  * calendário. `diasBase` (o divisor de 30) continua fixo, só o intervalo de
  * dias considerado mobilizado/excluído é que segue esse período.
  *
- * Dias com status Manutenção (exceto tipo Sinistro) ou Apoio Oficina na
- * Disponibilidade não contam como receita — só até a data de hoje; dias
- * futuros já marcados M/AO (ex.: manutenção preventiva agendada) ainda
- * contam normalmente, já que ainda não aconteceram.
+ * Dias com status Manutenção ou Apoio Oficina na Disponibilidade não contam
+ * como receita — exceto Avaria (nunca desconta) e Preventiva, que só passa
+ * a descontar a partir do 4º dia parado (ver `diaMDeveDescontar`). Desconta
+ * só até a data de hoje; dias futuros já marcados M/AO (ex.: manutenção
+ * preventiva agendada) ainda contam normalmente, já que ainda não
+ * aconteceram.
  */
 export function computeForecastFromEquipObra(
   equipments: Equipment[],
@@ -221,10 +261,13 @@ export function computeForecastFromEquipObra(
   { period, filterObra, filterFamily }: ForecastFiltersEquipObra,
   disponibilidade: DisponibilidadeRecord[],
   eventosManutencao: EventoManutencao[],
+  /** Quantos períodos de medição já encerrados incluir antes do corrente (0 = só o corrente em diante). */
+  mesesAnteriores: number = 0,
 ): ForecastResult & { periodos: PeriodoMedicao[] } {
   const hoje = new Date();
-  const primeiroRotulo = mesRotuloAtual(hoje);
-  const months = Array.from({ length: period }, (_, i) => addMonths(primeiroRotulo, i));
+  const primeiroRotulo = addMonths(mesRotuloAtual(hoje), -mesesAnteriores);
+  const totalMeses = period + mesesAnteriores;
+  const months = Array.from({ length: totalMeses }, (_, i) => addMonths(primeiroRotulo, i));
   const periodos = months.map(periodoMedicaoDoRotulo);
 
   // Lookup: `${descricao}||${obra}` → valor
@@ -271,7 +314,7 @@ export function computeForecastFromEquipObra(
           monthValue = Math.round((valor / 30) * diasBase);
         }
 
-        // Desconta dias M (não-Sinistro) e AO dentro do trecho mobilizado deste período
+        // Desconta dias M (conforme diaMDeveDescontar) e AO dentro do trecho mobilizado deste período
         const inicioMobilizado = mobDate > startM ? mobDate : startM;
         const fimMobilizado = desmobDate && desmobDate < endM ? desmobDate : endM;
         const diasExcluidos = contarDiasExcluidos(eq.prefixo, inicioMobilizado, fimMobilizado, hoje, infoExclusao);
