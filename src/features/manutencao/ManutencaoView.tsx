@@ -16,7 +16,7 @@ interface Props {
 const TODAY = new Date();
 const TODAY_STR = format(TODAY, 'yyyy-MM-dd');
 
-const TIPOS: TipoManutencao[] = ['Corretiva', 'Preventiva', 'Revisão', 'Sinistro'];
+const TIPOS: TipoManutencao[] = ['Corretiva', 'Preventiva', 'Revisão', 'Avaria'];
 const SISTEMAS: SistemaManutencao[] = ['Motor', 'Hidráulico', 'Elétrico', 'Rodante', 'Estrutura', 'Outro'];
 
 function formatarData(iso: string): string {

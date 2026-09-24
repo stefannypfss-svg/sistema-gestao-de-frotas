@@ -1,6 +1,6 @@
 import React from 'react';
-import { Download, Filter, Building2, Clock, Percent, Eraser } from 'lucide-react';
-import { format } from 'date-fns';
+import { Download, Filter, Building2, Clock, Percent, Eraser, History } from 'lucide-react';
+import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Equipment, EquipamentoObra, TabelaLocacao, Work } from '../../types';
 import { cn, formatCurrency } from '../../lib/utils';
@@ -36,6 +36,11 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   const [filterObra, setFilterObra] = React.useState('');
   const [filterFamily, setFilterFamily] = React.useState('');
   const [efficiency, setEfficiency] = React.useState(100);
+  const [includePastPeriod, setIncludePastPeriod] = React.useState(false);
+
+  // Rótulo do período de medição já encerrado (o anterior ao corrente),
+  // pra deixar claro na tela qual mês o toggle está trazendo de volta.
+  const pastPeriodLabel = format(addMonths(periodoMedicaoAtual().rotulo, -1), 'MMM/yy', { locale: ptBR });
 
   const obras = works.map((w) => w.nome).sort();
   const families = uniqueFamilies(equipments);
@@ -43,12 +48,18 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   // Só até hoje — dias M/AO no futuro (ex.: manutenção agendada) ainda
   // contam como receita normal, já que não aconteceram. Sem isso, o
   // cálculo nunca precisaria olhar além do mês corrente.
-  const disponibilidade = useDisponibilidadeLazy(INICIO_PERIODO_ATUAL_STR, HOJE_STR);
+  // Com o período encerrado incluído, a janela de leitura precisa recuar um
+  // mês também — senão os dias M/AO daquele período ficam sem dado e a
+  // receita passada aparece cheia (sem descontar manutenção que já ocorreu).
+  const inicioLeituraStr = includePastPeriod
+    ? format(addMonths(periodoMedicaoAtual().inicio, -1), 'yyyy-MM-dd')
+    : INICIO_PERIODO_ATUAL_STR;
+  const disponibilidade = useDisponibilidadeLazy(inicioLeituraStr, HOJE_STR);
 
   // Leitura pontual da coleção inteira, não filtrada por período: um
   // evento pode ter começado num mês anterior e ainda estar aberto agora
   // (dataInicio ficaria fora de qualquer range mensal) — precisamos do
-  // `tipo` dele mesmo assim, pra não excluir Sinistro por engano.
+  // `tipo` dele mesmo assim, pra não excluir Avaria por engano.
   const [eventosManutencao, setEventosManutencao] = React.useState<EventoManutencao[]>([]);
   React.useEffect(() => {
     let cancelado = false;
@@ -67,6 +78,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
     { period, filterObra, filterFamily },
     disponibilidade.items,
     eventosManutencao,
+    includePastPeriod ? 1 : 0,
   );
 
   const effectiveTotals = monthlyTotals.map((t) => (t * efficiency) / 100);
@@ -77,6 +89,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
     setFilterObra('');
     setFilterFamily('');
     setEfficiency(100);
+    setIncludePastPeriod(false);
   };
 
   const exportToCSV = () => {
@@ -158,6 +171,21 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               onChange={(v) => setEfficiency(Number(v))}
               options={EFFICIENCY_OPTIONS.map((v) => ({ value: v, label: `${v}%` }))}
             />
+          </ForecastFilter>
+          <ForecastFilter label="Histórico" icon={History}>
+            <button
+              type="button"
+              onClick={() => setIncludePastPeriod((v) => !v)}
+              title={`Inclui o período já encerrado (${pastPeriodLabel})`}
+              className={cn(
+                'h-[42px] px-3.5 rounded-full border text-[13px] font-medium transition-colors shadow-sm',
+                includePastPeriod
+                  ? 'bg-brand text-white border-brand'
+                  : 'bg-white text-gray-500 border-line hover:bg-surface-muted',
+              )}
+            >
+              {includePastPeriod ? `Incluindo ${pastPeriodLabel}` : `Incluir ${pastPeriodLabel}`}
+            </button>
           </ForecastFilter>
           <button
             type="button"

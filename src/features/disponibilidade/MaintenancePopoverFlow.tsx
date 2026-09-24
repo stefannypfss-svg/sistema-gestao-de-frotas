@@ -13,7 +13,7 @@ export type MFlowState =
   | { fase: 'erro'; mensagem: string }
   | null;
 
-const TIPOS: TipoManutencao[] = ['Corretiva', 'Preventiva', 'Revisão', 'Sinistro'];
+const TIPOS: TipoManutencao[] = ['Corretiva', 'Preventiva', 'Revisão', 'Avaria'];
 const SISTEMAS: SistemaManutencao[] = ['Motor', 'Hidráulico', 'Elétrico', 'Rodante', 'Estrutura', 'Outro'];
 
 function resumoEvento(e: EventoManutencao): string {
