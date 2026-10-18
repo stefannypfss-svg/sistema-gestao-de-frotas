@@ -17,6 +17,8 @@ const TODAY = new Date();
 const TODAY_STR = format(TODAY, 'yyyy-MM-dd');
 
 const TIPOS: TipoManutencao[] = ['Corretiva', 'Preventiva', 'Revisão', 'Avaria'];
+/** Sentinela pro filtro de Tipo — evento sem `tipo` definido (nunca classificado). */
+const TIPO_NAO_CLASSIFICADO = '__nao_classificado__';
 const SISTEMAS: SistemaManutencao[] = ['Motor', 'Hidráulico', 'Elétrico', 'Rodante', 'Estrutura', 'Outro'];
 
 function formatarData(iso: string): string {
@@ -75,7 +77,7 @@ export function ManutencaoView({ equipments }: Props) {
     return eventos.items
       .filter((e) => !filterFamilia || eqMap.get(e.prefixo)?.familia === filterFamilia)
       .filter((e) => !filterPrefixo || e.prefixo === filterPrefixo)
-      .filter((e) => !filterTipo || e.tipo === filterTipo)
+      .filter((e) => !filterTipo || (filterTipo === TIPO_NAO_CLASSIFICADO ? !e.tipo : e.tipo === filterTipo))
       .filter((e) => !filterSistema || e.sistema === filterSistema)
       .sort((a, b) => b.dataInicio.localeCompare(a.dataInicio));
   }, [eventos.items, eqMap, filterFamilia, filterPrefixo, filterTipo, filterSistema]);
@@ -190,7 +192,12 @@ export function ManutencaoView({ equipments }: Props) {
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Tipo</label>
-          <FilterSelect value={filterTipo} onChange={setFilterTipo} placeholder="Todos" options={TIPOS.map((t) => ({ value: t, label: t }))} />
+          <FilterSelect
+            value={filterTipo}
+            onChange={setFilterTipo}
+            placeholder="Todos"
+            options={[...TIPOS.map((t) => ({ value: t, label: t })), { value: TIPO_NAO_CLASSIFICADO, label: 'Não classificado' }]}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Sistema</label>

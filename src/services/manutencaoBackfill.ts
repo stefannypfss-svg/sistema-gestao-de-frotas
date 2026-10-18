@@ -8,7 +8,7 @@
  * Isolamento de falha por equipamento: um prefixo que falhar não derruba os
  * demais — o erro fica registrado no relatório e o backfill segue.
  */
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository } from './index';
 import { DisponibilidadeRecord, EventoManutencao } from '../types';
@@ -165,8 +165,16 @@ export async function executarBackfillManutencao(prefixos: string[]): Promise<Re
       const blocos = agruparBlocos(todos, eventosPorId);
 
       for (const bloco of blocos) {
+        // "Consistente" exige que TODO dia do bloco tenha eventoId — não só
+        // que os eventoId presentes sejam o mesmo. `.filter(Boolean)` por si
+        // só escondia dias sem nenhum vínculo (ex.: dias copiados pelo
+        // auto-copy da Disponibilidade, que grava o dia direto sem criar/
+        // vincular evento): um bloco com 2 dias linkados ao mesmo evento e
+        // 28 dias sem eventoId nenhum batia `size === 1` e era pulado,
+        // deixando o evento sempre preso aos 2 dias originais.
+        const todosComEventoId = bloco.every((d) => !!d.eventoId);
         const eventoIdsNoBloco = new Set(bloco.map((d) => d.eventoId).filter(Boolean));
-        if (eventoIdsNoBloco.size === 1) {
+        if (todosComEventoId && eventoIdsNoBloco.size === 1) {
           resultado.blocosJaConsistentes++;
           continue;
         }
@@ -198,4 +206,65 @@ export async function executarBackfillManutencao(prefixos: string[]): Promise<Re
   }
 
   return resultado;
+}
+
+export interface ResultadoMigracaoSinistro {
+  eventosAtualizados: number;
+  falhas: { id: string; erro: string }[];
+}
+
+/**
+ * Migração pontual: `TipoManutencao` foi renomeado de 'Sinistro' pra
+ * 'Avaria', mas eventos já gravados antes da renomeação ficaram com a
+ * grafia antiga. `classificarDiaM` (domain/forecast.ts) já reconhece as
+ * duas grafias como equivalentes pros cálculos de desconto — mas a tela de
+ * Panorama separa por `tipo` exato, então sem essa migração esses eventos
+ * antigos caem no balde "Não classificado" em vez de "Avaria". Idempotente:
+ * na segunda execução não sobra nenhum 'Sinistro' pra atualizar.
+ */
+export async function migrarSinistroParaAvaria(): Promise<ResultadoMigracaoSinistro> {
+  const todos = await eventoManutencaoRepository.list();
+  const comSinistro = todos.filter((e) => (e.tipo as string) === 'Sinistro');
+
+  let eventosAtualizados = 0;
+  const falhas: { id: string; erro: string }[] = [];
+  for (const evento of comSinistro) {
+    try {
+      await eventoManutencaoRepository.update(evento.id, { ...evento, tipo: 'Avaria' });
+      eventosAtualizados++;
+    } catch (e) {
+      falhas.push({ id: evento.id, erro: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return { eventosAtualizados, falhas };
+}
+
+const MIGRACAO_SINISTRO_META_ID = 'migracaoSinistroAvaria';
+
+/**
+ * Dispara `migrarSinistroParaAvaria` sozinha, uma única vez pra sempre —
+ * controlada por uma flag em `_meta/migracaoSinistroAvaria` (mesmo padrão de
+ * `_meta/lastChange`, ver `lib/lastChange.ts`). Chamar isso no início de
+ * cada sessão autenticada (ver `AppShell`) é o suficiente: depois da
+ * primeira vez que algum usuário loga e a flag é gravada, toda sessão
+ * seguinte faz só 1 leitura barata (`getDoc` do meta) e sai — ninguém mais
+ * precisa clicar em botão nenhum pra isso acontecer.
+ */
+export async function garantirMigracaoSinistroAvaria(): Promise<void> {
+  if (!isFirebaseConfigured) return; // modo local: sem dado compartilhado legado pra migrar
+
+  const metaRef = doc(db, '_meta', MIGRACAO_SINISTRO_META_ID);
+  const snap = await getDoc(metaRef);
+  if (snap.exists() && snap.data()?.concluida) return;
+
+  const resultado = await migrarSinistroParaAvaria();
+  await setDoc(metaRef, {
+    concluida: true,
+    eventosAtualizados: resultado.eventosAtualizados,
+    executadaEm: new Date().toISOString(),
+  });
+
+  if (resultado.eventosAtualizados > 0) {
+    console.log(`[Manutenção] Migração automática Sinistro → Avaria: ${resultado.eventosAtualizados} evento(s) atualizados.`);
+  }
 }

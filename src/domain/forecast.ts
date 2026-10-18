@@ -200,10 +200,26 @@ export function construirInfoExclusao(
  * desconta desde o 1º dia, como sempre foi.
  */
 export function diaMDeveDescontar(tipo: string | null, diaBloco: number): boolean {
+  return classificarDiaM(tipo, diaBloco) === 'efetiva';
+}
+
+/** As 3 categorias de dia parado, usadas na ramificação da tela de Panorama de Disponibilidade. */
+export type ClassificacaoDiaM = 'avaria' | 'preventiva_carencia' | 'efetiva';
+
+/**
+ * Classifica um dia de status M em uma das 3 categorias: `avaria` (nunca
+ * desconta — imprevisto, não falta de disponibilidade planejada),
+ * `preventiva_carencia` (Preventiva dentro dos 3 primeiros dias — programada,
+ * ainda não desconta) ou `efetiva` (Preventiva do 4º dia em diante, ou
+ * qualquer outro tipo — Corretiva, Revisão, não classificado — desconta
+ * desde o 1º dia). Base de `diaMDeveDescontar` (só `efetiva` desconta) e da
+ * ramificação de dias mostrada no Panorama de Disponibilidade.
+ */
+export function classificarDiaM(tipo: string | null, diaBloco: number): ClassificacaoDiaM {
   // 'Sinistro' = grafia legada, de antes da renomeação pra 'Avaria'.
-  if (tipo === 'Avaria' || tipo === 'Sinistro') return false;
-  if (tipo === 'Preventiva') return diaBloco > 3;
-  return true;
+  if (tipo === 'Avaria' || tipo === 'Sinistro') return 'avaria';
+  if (tipo === 'Preventiva' && diaBloco <= 3) return 'preventiva_carencia';
+  return 'efetiva';
 }
 
 /**
