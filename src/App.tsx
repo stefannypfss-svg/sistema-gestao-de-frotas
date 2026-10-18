@@ -4,6 +4,7 @@ import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
 import { disconnectDisponibilidade } from './hooks/useDisponibilidadeLazy';
 import { disconnectEventosManutencao } from './hooks/useEventosManutencaoLazy';
+import { garantirMigracaoSinistroAvaria } from './services/manutencaoBackfill';
 import { TabId } from './config/navigation';
 import { Topbar } from './components/layout/Topbar';
 import { WorksView } from './features/works/WorksView';
@@ -14,6 +15,7 @@ import { EquipamentoObraView } from './features/equipamentoObra/EquipamentoObraV
 import { DashboardView } from './features/dashboard/DashboardView';
 import { TabelaLocacaoView } from './features/tabelaLocacao/TabelaLocacaoView';
 import { DisponibilidadeView } from './features/disponibilidade/DisponibilidadeView';
+import { AnaliseDisponibilidadeView } from './features/analiseDisponibilidade/AnaliseDisponibilidadeView';
 import { ManutencaoView } from './features/manutencao/ManutencaoView';
 import { ControleAvariasView } from './features/controleAvarias/ControleAvariasView';
 import { MaoDeObraView } from './features/maoDeObra/MaoDeObraView';
@@ -30,6 +32,15 @@ function AppShell() {
   React.useEffect(() => () => {
     disconnectDisponibilidade();
     disconnectEventosManutencao();
+  }, []);
+
+  // Migração pontual (tipo legado 'Sinistro' → 'Avaria'): roda sozinha uma
+  // vez pra sempre, controlada por uma flag no Firestore — ninguém precisa
+  // clicar em botão nenhum pra isso acontecer (ver garantirMigracaoSinistroAvaria).
+  React.useEffect(() => {
+    garantirMigracaoSinistroAvaria().catch((e) =>
+      console.error('[App] falha na migração automática Sinistro → Avaria:', e),
+    );
   }, []);
 
   if (isLoading) {
@@ -77,6 +88,12 @@ function AppShell() {
             )}
             {activeTab === 'disponibilidade' && (
               <DisponibilidadeView
+                equipments={equipments}
+                equipamentoObra={equipamentoObra}
+              />
+            )}
+            {activeTab === 'analise-disponibilidade' && (
+              <AnaliseDisponibilidadeView
                 equipments={equipments}
                 equipamentoObra={equipamentoObra}
               />
