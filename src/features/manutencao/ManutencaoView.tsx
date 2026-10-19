@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, subYears } from 'date-fns';
-import { AlertTriangle, Wrench, PlayCircle, X } from 'lucide-react';
+import { AlertTriangle, Wrench, PlayCircle, X, Pencil, Trash2 } from 'lucide-react';
 import { Equipment, EventoManutencao, TipoManutencao, SistemaManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useEventosManutencaoLazy } from '../../hooks/useEventosManutencaoLazy';
 import { verificarAberto, diasSemAtualizacao } from '../../services/manutencaoQueries';
 import { executarBackfillManutencao } from '../../services/manutencaoBackfill';
+import { disponibilidadeRepository } from '../../services';
 import { PageHeader, StatCard, FilterSelect, StateMessage, Button } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
@@ -46,6 +47,13 @@ export function ManutencaoView({ equipments }: Props) {
 
   const [abertosMap, setAbertosMap] = useState<Map<string, boolean>>(new Map());
   const [backfillRodando, setBackfillRodando] = useState(false);
+
+  const [editingEvento, setEditingEvento] = useState<EventoManutencao | null>(null);
+  const [editTipo, setEditTipo] = useState<TipoManutencao | ''>('');
+  const [editSistema, setEditSistema] = useState<SistemaManutencao | ''>('');
+  const [editNota, setEditNota] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const eqMap = useMemo(() => {
     const m = new Map<string, Equipment>();
@@ -159,6 +167,59 @@ export function ManutencaoView({ equipments }: Props) {
     }
   };
 
+  function openEdit(e: EventoManutencao) {
+    setEditingEvento(e);
+    setEditTipo(e.tipo ?? '');
+    setEditSistema(e.sistema ?? '');
+    setEditNota(e.nota ?? '');
+  }
+
+  async function salvarEdicao() {
+    if (!editingEvento) return;
+    setSavingEdit(true);
+    try {
+      await eventos.update(editingEvento.id, {
+        ...editingEvento,
+        tipo: editTipo || null,
+        sistema: editSistema || null,
+        nota: editNota.trim() || null,
+      });
+      setEditingEvento(null);
+    } catch (e) {
+      console.error('[Manutenção] falha ao salvar edição do evento:', e);
+      window.alert('Não foi possível salvar. Veja o console para detalhes.');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  // Excluir não basta — os dias (status_dia) desse equipamento continuam
+  // apontando pro eventoId que vai deixar de existir. Sem limpar isso, eles
+  // ficam "órfãos vivos": ainda contam como M, mas com um vínculo morto que
+  // o backfill trata como "já consistente" (tem eventoId) e nunca
+  // reprocessa. Limpa o `eventoId` de cada dia primeiro, pra esses dias
+  // voltarem a ficar disponíveis pra reconciliação normal.
+  async function excluirEvento(evento: EventoManutencao) {
+    if (!window.confirm(`Excluir o evento de ${evento.prefixo} (${formatarData(evento.dataInicio)}–${formatarData(evento.dataFim)})? Os dias ficam marcados como M, mas sem classificação — rode o backfill depois se quiser reconciliá-los de novo.`)) {
+      return;
+    }
+    setDeletingId(evento.id);
+    try {
+      const todos = await disponibilidadeRepository.list();
+      const diasDoEvento = todos.filter((d) => d.eventoId === evento.id);
+      for (const dia of diasDoEvento) {
+        const { eventoId, ...resto } = dia;
+        await disponibilidadeRepository.update(dia.id, resto);
+      }
+      await eventos.remove(evento.id);
+    } catch (e) {
+      console.error('[Manutenção] falha ao excluir evento:', e);
+      window.alert('Não foi possível excluir. Veja o console para detalhes.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const isLoading = eventos.loading || equipments.loading;
 
   return (
@@ -260,7 +321,7 @@ export function ManutencaoView({ equipments }: Props) {
             ) : (
               <div className="bg-white border border-gray-200 rounded-2xl shadow-sm divide-y divide-gray-50">
                 {eventosFiltrados.map((e) => (
-                  <div key={e.id} className="px-5 py-3 flex items-start gap-3">
+                  <div key={e.id} className="px-5 py-3 flex items-start gap-3 group hover:bg-gray-50/60 transition-colors">
                     <span className="text-lg leading-none">🔧</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] text-gray-800">
@@ -273,6 +334,23 @@ export function ManutencaoView({ equipments }: Props) {
                         {rotuloEvento(e)}
                       </p>
                       {e.nota && <p className="text-[11px] text-gray-400 line-clamp-1">"{e.nota}"</p>}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <button
+                        onClick={() => openEdit(e)}
+                        title="Editar classificação"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-brand hover:bg-brand/10 transition-colors"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => excluirEvento(e)}
+                        disabled={deletingId === e.id}
+                        title="Excluir evento"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -298,6 +376,66 @@ export function ManutencaoView({ equipments }: Props) {
             )}
           </section>
         </>
+      )}
+
+      {/* ── Modal de edição ── */}
+      {editingEvento && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-[15px] font-bold text-gray-900">Editar classificação</h2>
+              <button onClick={() => setEditingEvento(null)} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-[12px] text-gray-500">
+                <span className="font-bold text-brand">{editingEvento.prefixo}</span>{' '}
+                {formatarData(editingEvento.dataInicio)}–{formatarData(editingEvento.dataFim)} · {editingEvento.diasParados} dias
+              </p>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-gray-500 font-medium">Tipo</label>
+                <select
+                  value={editTipo}
+                  onChange={(e) => setEditTipo(e.target.value as TipoManutencao | '')}
+                  className="h-9 px-2 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand"
+                >
+                  <option value="">— Não classificado —</option>
+                  {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-gray-500 font-medium">Sistema</label>
+                <select
+                  value={editSistema}
+                  onChange={(e) => setEditSistema(e.target.value as SistemaManutencao | '')}
+                  className="h-9 px-2 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand"
+                >
+                  <option value="">—</option>
+                  {SISTEMAS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-gray-500 font-medium">Nota</label>
+                <textarea
+                  value={editNota}
+                  onChange={(e) => setEditNota(e.target.value)}
+                  rows={2}
+                  placeholder="Observações adicionais…"
+                  className="px-2 py-1.5 text-[12px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => setEditingEvento(null)} className="px-4 py-2 text-[13px] text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <Button variant="primary" onClick={salvarEdicao} disabled={savingEdit}>
+                {savingEdit ? 'Salvando…' : 'Salvar'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
