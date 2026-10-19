@@ -14,12 +14,6 @@ import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository } fr
 import { DisponibilidadeRecord, EventoManutencao } from '../types';
 import { reconciliarM } from './manutencaoReconciliation';
 
-async function lerEvento(id: string): Promise<EventoManutencao | null> {
-  if (!isFirebaseConfigured) return null;
-  const snap = await getDoc(doc(db, COLLECTIONS.eventosManutencao, id));
-  return snap.exists() ? (snap.data() as EventoManutencao) : null;
-}
-
 function addDiasStr(data: string, n: number): string {
   const d = new Date(data + 'T12:00:00');
   d.setDate(d.getDate() + n);
@@ -146,23 +140,28 @@ export async function executarBackfillManutencao(prefixos: string[]): Promise<Re
     falhas: [],
   };
 
+  // Lidos UMA VEZ só, fora do loop — antes disso, `disponibilidadeRepository
+  // .list()` rodava por dentro do `for`, relendo a coleção inteira pra cada
+  // equipamento. Com N equipamentos isso é N leituras completas da coleção
+  // (que já cresce 1 doc/equipamento/dia sozinha) numa única execução —
+  // o suficiente pra estourar a cota diária do projeto inteiro de uma vez
+  // só, derrubando até gente em outro computador com "Quota exceeded".
+  const [todosDisponibilidade, todosEventos] = await Promise.all([
+    disponibilidadeRepository.list(),
+    eventoManutencaoRepository.list(),
+  ]);
+  const eventosGlobalPorId = new Map(todosEventos.map((e) => [e.id, e]));
+
   for (const prefixo of prefixos) {
     try {
-      const todos = (await disponibilidadeRepository.list()).filter((r) => r.prefixo === prefixo);
+      const todos = todosDisponibilidade.filter((r) => r.prefixo === prefixo);
       if (todos.length === 0) {
         resultado.equipamentosProcessados++;
         continue;
       }
       todos.sort((a, b) => a.data.localeCompare(b.data));
 
-      const idsConhecidos = new Set(todos.map((r) => r.eventoId).filter((id): id is string => !!id));
-      const eventosPorId = new Map<string, EventoManutencao>();
-      for (const id of idsConhecidos) {
-        const evento = await lerEvento(id);
-        if (evento) eventosPorId.set(id, evento);
-      }
-
-      const blocos = agruparBlocos(todos, eventosPorId);
+      const blocos = agruparBlocos(todos, eventosGlobalPorId);
 
       for (const bloco of blocos) {
         // "Consistente" exige que TODO dia do bloco tenha eventoId — não só
