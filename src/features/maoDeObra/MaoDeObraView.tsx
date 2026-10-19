@@ -5,7 +5,7 @@ import { Users, Eye, EyeOff, X, Wrench, Eraser } from 'lucide-react';
 import { CargoMaoDeObra, DisponibilidadeStatus, EquipamentoObra, MaoDeObraRegistro, ObraMaoDeObra } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeHoje } from '../../hooks/useDisponibilidadeHoje';
-import { PageHeader, StateMessage } from '../../components/ui';
+import { PageHeader, StateMessage, FilterSelect } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -86,6 +86,9 @@ const TODAY = new Date();
 const TODAY_STR = format(TODAY, 'yyyy-MM-dd');
 
 const MONTH_LABELS = MESES.map((mes) => format(new Date(2024, mes - 1, 1), 'MMMM', { locale: ptBR }));
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export function MaoDeObraView({ maoDeObra, equipamentoObra }: Props) {
   const [ano, setAno] = useState(TODAY.getFullYear());
@@ -185,39 +188,31 @@ export function MaoDeObraView({ maoDeObra, equipamentoObra }: Props) {
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-wrap gap-4 items-end shadow-sm">
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Obra</label>
-          <select
+          <FilterSelect
             value={filterObra}
-            onChange={(e) => setFilterObra(e.target.value as ObraMaoDeObra | '')}
-            className="h-[38px] px-3 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand min-w-[220px]"
-          >
-            <option value="">Todas</option>
-            {OBRAS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+            onChange={(v) => setFilterObra(v as ObraMaoDeObra | '')}
+            placeholder="Todas"
+            options={OBRAS.map((o) => ({ value: o, label: o }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Ano</label>
-          <select
+          <FilterSelect
             value={ano}
-            onChange={(e) => setAno(Number(e.target.value))}
-            className="h-[38px] px-3 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand"
-          >
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+            onChange={(v) => setAno(Number(v))}
+            options={yearOptions.map((y) => ({ value: y, label: String(y) }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Mês</label>
-          <select
+          <FilterSelect
             value={filterMes}
-            onChange={(e) => setFilterMes(e.target.value ? Number(e.target.value) : '')}
-            className="h-[38px] px-3 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand capitalize"
-          >
-            <option value="">Todos</option>
-            {MESES.map((mes) => (
-              <option key={mes} value={mes} className="capitalize">{MONTH_LABELS[mes - 1]}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilterMes(v ? Number(v) : '')}
+            placeholder="Todos"
+            options={MESES.map((mes) => ({ value: mes, label: capitalize(MONTH_LABELS[mes - 1]) }))}
+          />
         </div>
 
         {hasFiltro && (
