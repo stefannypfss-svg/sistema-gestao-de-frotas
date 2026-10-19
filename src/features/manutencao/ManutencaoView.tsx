@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, subYears } from 'date-fns';
 import { AlertTriangle, Wrench, PlayCircle, X, Pencil, Trash2 } from 'lucide-react';
-import { Equipment, EventoManutencao, TipoManutencao, SistemaManutencao } from '../../types';
+import { Equipment, EquipamentoObra, EventoManutencao, TipoManutencao, SistemaManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useEventosManutencaoLazy } from '../../hooks/useEventosManutencaoLazy';
 import { verificarAberto, diasSemAtualizacao } from '../../services/manutencaoQueries';
@@ -12,6 +12,7 @@ import { cn } from '../../lib/utils';
 
 interface Props {
   equipments: Collection<Equipment>;
+  equipamentoObra: Collection<EquipamentoObra>;
 }
 
 const TODAY = new Date();
@@ -32,7 +33,7 @@ function rotuloEvento(e: EventoManutencao): string {
   return partes.length > 0 ? partes.join(' · ') : 'Não classificado';
 }
 
-export function ManutencaoView({ equipments }: Props) {
+export function ManutencaoView({ equipments, equipamentoObra }: Props) {
   const [dataInicio] = useState(() => format(subYears(TODAY, 2), 'yyyy-MM-dd'));
   // Margem pra frente: um evento pode ter data_inicio de amanhã (ex.: alguém
   // marcou M num dia futuro) — sem isso a assinatura, presa a "até hoje",
@@ -44,6 +45,7 @@ export function ManutencaoView({ equipments }: Props) {
   const [filterPrefixo, setFilterPrefixo] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
   const [filterSistema, setFilterSistema] = useState('');
+  const [filterObra, setFilterObra] = useState('');
 
   const [abertosMap, setAbertosMap] = useState<Map<string, boolean>>(new Map());
   const [backfillRodando, setBackfillRodando] = useState(false);
@@ -60,6 +62,21 @@ export function ManutencaoView({ equipments }: Props) {
     equipments.items.forEach((e) => m.set(e.prefixo, e));
     return m;
   }, [equipments.items]);
+
+  // Obra atual de cada equipamento ativo (sem dataEnvio) em EquipxObra —
+  // mesmo critério usado nas outras telas pra "obra em tela".
+  const obraPorPrefixo = useMemo(() => {
+    const m = new Map<string, string>();
+    equipamentoObra.items.forEach((r) => {
+      if (!r.dataEnvio) m.set(r.prefixo, r.obra);
+    });
+    return m;
+  }, [equipamentoObra.items]);
+
+  const obrasOptions = useMemo(
+    () => [...new Set(obraPorPrefixo.values())].sort().map((o) => ({ value: o, label: o })),
+    [obraPorPrefixo],
+  );
 
   // Deriva "aberto" na leitura — checa só eventos com dataFim recente
   // (janela de 400 dias): equipamento esquecido além disso já teria sido
@@ -87,8 +104,9 @@ export function ManutencaoView({ equipments }: Props) {
       .filter((e) => !filterPrefixo || e.prefixo === filterPrefixo)
       .filter((e) => !filterTipo || (filterTipo === TIPO_NAO_CLASSIFICADO ? !e.tipo : e.tipo === filterTipo))
       .filter((e) => !filterSistema || e.sistema === filterSistema)
+      .filter((e) => !filterObra || obraPorPrefixo.get(e.prefixo) === filterObra)
       .sort((a, b) => b.dataInicio.localeCompare(a.dataInicio));
-  }, [eventos.items, eqMap, filterFamilia, filterPrefixo, filterTipo, filterSistema]);
+  }, [eventos.items, eqMap, filterFamilia, filterPrefixo, filterTipo, filterSistema, filterObra, obraPorPrefixo]);
 
   const abertos = useMemo(
     () => eventosFiltrados.filter((e) => abertosMap.get(e.id)),
@@ -142,9 +160,10 @@ export function ManutencaoView({ equipments }: Props) {
     setFilterPrefixo('');
     setFilterTipo('');
     setFilterSistema('');
+    setFilterObra('');
   };
 
-  const temFiltroAtivo = filterFamilia || filterPrefixo || filterTipo || filterSistema;
+  const temFiltroAtivo = filterFamilia || filterPrefixo || filterTipo || filterSistema || filterObra;
 
   const rodarBackfill = async () => {
     if (!window.confirm('Rodar o backfill de manutenção sobre todo o histórico? Isso pode levar alguns minutos.')) return;
@@ -220,7 +239,7 @@ export function ManutencaoView({ equipments }: Props) {
     }
   }
 
-  const isLoading = eventos.loading || equipments.loading;
+  const isLoading = eventos.loading || equipments.loading || equipamentoObra.loading;
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
@@ -243,6 +262,10 @@ export function ManutencaoView({ equipments }: Props) {
 
       {/* Filtros */}
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-wrap gap-4 items-end shadow-sm">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Obra</label>
+          <FilterSelect value={filterObra} onChange={setFilterObra} placeholder="Todas" options={obrasOptions} />
+        </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Família</label>
           <FilterSelect value={filterFamilia} onChange={handleFilterFamiliaChange} placeholder="Todas" options={familiasOptions} />

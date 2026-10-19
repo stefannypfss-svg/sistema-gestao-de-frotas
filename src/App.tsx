@@ -99,7 +99,7 @@ function AppShell() {
               />
             )}
             {activeTab === 'manutencao' && (
-              <ManutencaoView equipments={equipments} />
+              <ManutencaoView equipments={equipments} equipamentoObra={equipamentoObra} />
             )}
             {activeTab === 'controle-avarias' && (
               <ControleAvariasView
