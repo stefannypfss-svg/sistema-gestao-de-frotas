@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDays, format, subYears } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { AlertTriangle, Wrench, PlayCircle, X, Pencil, Trash2 } from 'lucide-react';
 import { Equipment, EquipamentoObra, EventoManutencao, TipoManutencao, SistemaManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
@@ -7,7 +8,7 @@ import { useEventosManutencaoLazy } from '../../hooks/useEventosManutencaoLazy';
 import { verificarAberto, diasSemAtualizacao } from '../../services/manutencaoQueries';
 import { executarBackfillManutencao } from '../../services/manutencaoBackfill';
 import { disponibilidadeRepository } from '../../services';
-import { PageHeader, StatCard, FilterSelect, StateMessage, Button } from '../../components/ui';
+import { PageHeader, StatCard, FilterSelect, MultiSelectPicker, StateMessage, Button } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -23,9 +24,22 @@ const TIPOS: TipoManutencao[] = ['Corretiva', 'Preventiva', 'Revisão', 'Avaria'
 const TIPO_NAO_CLASSIFICADO = '__nao_classificado__';
 const SISTEMAS: SistemaManutencao[] = ['Motor', 'Hidráulico', 'Elétrico', 'Rodante', 'Estrutura', 'Outro'];
 
+const MES_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
+  value: String(i + 1),
+  label: format(new Date(2024, i, 1), 'MMM', { locale: ptBR }),
+}));
+
 function formatarData(iso: string): string {
   const [, m, d] = iso.split('-');
   return `${d}/${m}`;
+}
+
+/** Ano (yyyy) e mês (1-12, sem zero à esquerda) da `dataInicio` de um evento — base dos filtros de Ano/Mês. */
+function anoDoEvento(iso: string): string {
+  return iso.slice(0, 4);
+}
+function mesDoEvento(iso: string): string {
+  return String(Number(iso.slice(5, 7)));
 }
 
 function rotuloEvento(e: EventoManutencao): string {
@@ -46,6 +60,8 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
   const [filterTipo, setFilterTipo] = useState('');
   const [filterSistema, setFilterSistema] = useState('');
   const [filterObra, setFilterObra] = useState('');
+  const [filterAnos, setFilterAnos] = useState<Set<string>>(new Set());
+  const [filterMesesEvento, setFilterMesesEvento] = useState<Set<string>>(new Set());
 
   const [abertosMap, setAbertosMap] = useState<Map<string, boolean>>(new Map());
   const [backfillRodando, setBackfillRodando] = useState(false);
@@ -78,6 +94,14 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
     [obraPorPrefixo],
   );
 
+  // Anos presentes no histórico carregado (+ o ano atual, mesmo sem evento
+  // ainda) — mais recente primeiro.
+  const anoOptions = useMemo(() => {
+    const anos = new Set(eventos.items.map((e) => anoDoEvento(e.dataInicio)));
+    anos.add(String(TODAY.getFullYear()));
+    return [...anos].sort((a, b) => b.localeCompare(a)).map((a) => ({ value: a, label: a }));
+  }, [eventos.items]);
+
   // Deriva "aberto" na leitura — checa só eventos com dataFim recente
   // (janela de 400 dias): equipamento esquecido além disso já teria sido
   // sinalizado pelo alerta de esquecimento bem antes.
@@ -105,8 +129,10 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
       .filter((e) => !filterTipo || (filterTipo === TIPO_NAO_CLASSIFICADO ? !e.tipo : e.tipo === filterTipo))
       .filter((e) => !filterSistema || e.sistema === filterSistema)
       .filter((e) => !filterObra || obraPorPrefixo.get(e.prefixo) === filterObra)
+      .filter((e) => filterAnos.size === 0 || filterAnos.has(anoDoEvento(e.dataInicio)))
+      .filter((e) => filterMesesEvento.size === 0 || filterMesesEvento.has(mesDoEvento(e.dataInicio)))
       .sort((a, b) => b.dataInicio.localeCompare(a.dataInicio));
-  }, [eventos.items, eqMap, filterFamilia, filterPrefixo, filterTipo, filterSistema, filterObra, obraPorPrefixo]);
+  }, [eventos.items, eqMap, filterFamilia, filterPrefixo, filterTipo, filterSistema, filterObra, obraPorPrefixo, filterAnos, filterMesesEvento]);
 
   const abertos = useMemo(
     () => eventosFiltrados.filter((e) => abertosMap.get(e.id)),
@@ -161,9 +187,11 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
     setFilterTipo('');
     setFilterSistema('');
     setFilterObra('');
+    setFilterAnos(new Set());
+    setFilterMesesEvento(new Set());
   };
 
-  const temFiltroAtivo = filterFamilia || filterPrefixo || filterTipo || filterSistema || filterObra;
+  const temFiltroAtivo = filterFamilia || filterPrefixo || filterTipo || filterSistema || filterObra || filterAnos.size > 0 || filterMesesEvento.size > 0;
 
   const rodarBackfill = async () => {
     if (!window.confirm('Rodar o backfill de manutenção sobre todo o histórico? Isso pode levar alguns minutos.')) return;
@@ -266,6 +294,8 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Obra</label>
           <FilterSelect value={filterObra} onChange={setFilterObra} placeholder="Todas" options={obrasOptions} />
         </div>
+        <MultiSelectPicker label="Ano" options={anoOptions} selected={filterAnos} onChange={setFilterAnos} layout="grid" gridColumns={3} />
+        <MultiSelectPicker label="Mês" options={MES_OPTIONS} selected={filterMesesEvento} onChange={setFilterMesesEvento} layout="grid" gridColumns={3} />
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Família</label>
           <FilterSelect value={filterFamilia} onChange={handleFilterFamiliaChange} placeholder="Todas" options={familiasOptions} />

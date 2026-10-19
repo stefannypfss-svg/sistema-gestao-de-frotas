@@ -3,6 +3,7 @@ import { Search, ChevronDown, ChevronUp, Pencil, Trash2, Plus } from 'lucide-rea
 import { Equipment } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { cn } from '../../lib/utils';
+import { FilterSelect } from '../../components/ui';
 import { TechnicalEditModal } from './TechnicalEditModal';
 
 interface Props {
@@ -52,31 +53,6 @@ function StatusGeral({ value }: { value?: string }) {
         {value}
       </span>
     </td>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-2 text-[13px] border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-gray-600"
-    >
-      <option value="">{label}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
   );
 }
 
@@ -192,16 +168,16 @@ export function TechnicalDataView({ equipments }: Props) {
             />
           </div>
           <FilterSelect
-            label="Grupo de equipamentos"
+            placeholder="Grupo de equipamentos"
             value={filterGrupo}
             onChange={(v) => { setFilterGrupo(v); setFilterFamilia(''); }}
-            options={grupos}
+            options={grupos.map((g) => ({ value: g, label: g }))}
           />
           <FilterSelect
-            label="Todas as famílias"
+            placeholder="Todas as famílias"
             value={filterFamilia}
             onChange={setFilterFamilia}
-            options={familias}
+            options={familias.map((f) => ({ value: f, label: f }))}
           />
         </div>
       </div>

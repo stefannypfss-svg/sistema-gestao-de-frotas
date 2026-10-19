@@ -497,10 +497,10 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   /* ── Opções de filtro de ano/mês ──────────────────────────────── */
 
   const yearOptions  = [TODAY.getFullYear() - 1, TODAY.getFullYear(), TODAY.getFullYear() + 1];
-  const monthOptions = Array.from({ length: 12 }, (_, i) => ({
-    value: i + 1,
-    label: format(new Date(2024, i, 1), 'MMMM', { locale: ptBR }),
-  }));
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const nome = format(new Date(2024, i, 1), 'MMMM', { locale: ptBR });
+    return { value: i + 1, label: nome.charAt(0).toUpperCase() + nome.slice(1) };
+  });
 
   const isLoading = disponibilidade.loading || equipments.loading || equipamentoObra.loading;
 
@@ -582,27 +582,21 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
         {/* Ano */}
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Ano</label>
-          <select
+          <FilterSelect
             value={filterYear}
-            onChange={(e) => setFilterYear(Number(e.target.value))}
-            className="h-[38px] px-3 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand"
-          >
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+            onChange={(v) => setFilterYear(Number(v))}
+            options={yearOptions.map((y) => ({ value: y, label: String(y) }))}
+          />
         </div>
 
         {/* Mês */}
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Mês</label>
-          <select
+          <FilterSelect
             value={filterMonth}
-            onChange={(e) => setFilterMonth(Number(e.target.value))}
-            className="h-[38px] px-3 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand capitalize"
-          >
-            {monthOptions.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilterMonth(Number(v))}
+            options={monthOptions.map((m) => ({ value: m.value, label: m.label }))}
+          />
         </div>
 
         {/* Dias */}

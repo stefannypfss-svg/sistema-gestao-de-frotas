@@ -428,13 +428,11 @@ export function AnaliseDisponibilidadeView({ equipments, equipamentoObra }: Prop
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Ano</label>
-          <select
+          <FilterSelect
             value={ano}
-            onChange={(e) => setAno(Number(e.target.value))}
-            className="h-[38px] px-3 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-brand"
-          >
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+            onChange={(v) => setAno(Number(v))}
+            options={yearOptions.map((y) => ({ value: y, label: String(y) }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5 relative" ref={mesPickerRef}>

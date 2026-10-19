@@ -6,7 +6,7 @@ import { EquipamentoObra, Equipment, DisponibilidadeStatus } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeHoje } from '../../hooks/useDisponibilidadeHoje';
 import { cn } from '../../lib/utils';
-import { Card, StatCard, StateMessage } from '../../components/ui';
+import { Card, StatCard, StateMessage, FilterSelect } from '../../components/ui';
 
 interface Props {
   registros: Collection<EquipamentoObra>;
@@ -524,26 +524,29 @@ export function DashboardView({ registros, equipments }: Props) {
               />
             </div>
             {/* Filtro Obra */}
-            <select value={filterObra} onChange={(e) => setFilterObra(e.target.value)}
-              className="px-3 py-2 text-[13px] border border-line rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 text-gray-600 h-[42px] shadow-sm">
-              <option value="">Todas as obras</option>
-              {obras.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <FilterSelect
+              value={filterObra}
+              onChange={setFilterObra}
+              placeholder="Todas as obras"
+              options={obras.map((o) => ({ value: o, label: o }))}
+            />
             {/* Filtro Situação */}
-            <select value={filterSituacao} onChange={(e) => setFilterSituacao(e.target.value)}
-              className="px-3 py-2 text-[13px] border border-line rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 text-gray-600 h-[42px] shadow-sm">
-              <option value="">Todas as situações</option>
-              <option value="Mobilizado">Mobilizado</option>
-              <option value="Desmobilizado">Desmobilizado</option>
-            </select>
+            <FilterSelect
+              value={filterSituacao}
+              onChange={setFilterSituacao}
+              placeholder="Todas as situações"
+              options={[
+                { value: 'Mobilizado', label: 'Mobilizado' },
+                { value: 'Desmobilizado', label: 'Desmobilizado' },
+              ]}
+            />
             {/* Filtro Status (Disponibilidade de hoje) */}
-            <select value={filterDispStatus} onChange={(e) => setFilterDispStatus(e.target.value as DisponibilidadeStatus | '')}
-              className="px-3 py-2 text-[13px] border border-line rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 text-gray-600 h-[42px] shadow-sm">
-              <option value="">Todos os status</option>
-              {DISP_STATUS_ORDER.map((s) => (
-                <option key={s} value={s}>{s} – {DISP_STATUS_CONFIG[s].label}</option>
-              ))}
-            </select>
+            <FilterSelect
+              value={filterDispStatus}
+              onChange={(v) => setFilterDispStatus(v as DisponibilidadeStatus | '')}
+              placeholder="Todos os status"
+              options={DISP_STATUS_ORDER.map((s) => ({ value: s, label: `${s} – ${DISP_STATUS_CONFIG[s].label}` }))}
+            />
             <button type="button" onClick={clearFilters} title="Limpar filtros"
               className="inline-flex items-center justify-center w-[42px] h-[42px] rounded-full bg-white border border-line text-gray-500 hover:bg-surface-muted transition-colors shadow-sm shrink-0">
               <Eraser size={16} />

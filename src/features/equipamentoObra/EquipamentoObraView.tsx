@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { EquipamentoObra, Equipment, Work } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { cn } from '../../lib/utils';
+import { FilterSelect } from '../../components/ui';
 import { EquipamentoObraModal } from './EquipamentoObraModal';
 
 interface Props {
@@ -121,25 +122,23 @@ export function EquipamentoObraView({ registros, equipments, works }: Props) {
           </div>
 
           {/* Filtro Obra */}
-          <select
+          <FilterSelect
             value={filterObra}
-            onChange={(e) => setFilterObra(e.target.value)}
-            className="px-3 py-2 text-[13px] border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-gray-600"
-          >
-            <option value="">Todas as obras</option>
-            {obras.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+            onChange={setFilterObra}
+            placeholder="Todas as obras"
+            options={obras.map((o) => ({ value: o, label: o }))}
+          />
 
           {/* Filtro Situação */}
-          <select
+          <FilterSelect
             value={filterSituacao}
-            onChange={(e) => setFilterSituacao(e.target.value)}
-            className="px-3 py-2 text-[13px] border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-gray-600"
-          >
-            <option value="">Todas as situações</option>
-            <option value="Mobilizado">Mobilizado</option>
-            <option value="Desmobilizado">Desmobilizado</option>
-          </select>
+            onChange={setFilterSituacao}
+            placeholder="Todas as situações"
+            options={[
+              { value: 'Mobilizado', label: 'Mobilizado' },
+              { value: 'Desmobilizado', label: 'Desmobilizado' },
+            ]}
+          />
 
           {/* Botão adicionar */}
           <button

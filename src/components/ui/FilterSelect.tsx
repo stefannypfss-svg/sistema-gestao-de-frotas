@@ -1,5 +1,5 @@
-import React from 'react';
-import { LucideIcon } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { LucideIcon, ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface Option {
@@ -19,10 +19,11 @@ interface FilterSelectProps {
 }
 
 /**
- * Select de barra de filtros padronizado.
- *
- * Resolve a inconsistência anterior em que alguns filtros tinham borda externa
- * e outros não: todos compartilham o mesmo contêiner aqui.
+ * Select de barra de filtros padronizado — botão + popover customizado
+ * (mesma caixa/estilo do `MultiSelectPicker`), não um `<select>` nativo: a
+ * lista nativa é desenhada pelo navegador/SO e não dá pra estilizar, então
+ * pra abertura ter a mesma cara do resto do sistema o dropdown precisa ser
+ * nosso. Seleção única — escolher uma opção já fecha o popover.
  */
 export const FilterSelect: React.FC<FilterSelectProps> = ({
   value,
@@ -32,30 +33,68 @@ export const FilterSelect: React.FC<FilterSelectProps> = ({
   placeholder,
   className,
 }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const isEmpty = value === '' || value === undefined;
+  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label;
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
   return (
-    <div
-      className={cn(
-        'inline-flex items-center gap-1.5 px-3 h-[42px] bg-white rounded-full border border-line text-[13px] hover:border-gray-300 transition-colors shadow-sm min-w-35',
-        className,
-      )}
-    >
-      {Icon && <Icon size={14} className="text-gray-400 shrink-0" />}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          'w-full h-full bg-transparent border-none shadow-none outline-none text-[13px] font-medium cursor-pointer appearance-none focus:ring-0',
-          isEmpty ? 'text-gray-400' : 'text-gray-900',
-        )}
+    <div className={cn('relative inline-block', className)} ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 px-3 h-[38px] w-full min-w-[150px] max-w-[240px] bg-white rounded-lg border border-gray-200 text-[13px] hover:border-gray-300 transition-colors"
       >
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value} className="text-gray-900">
-            {o.label}
-          </option>
-        ))}
-      </select>
+        {Icon && <Icon size={14} className="text-gray-400 shrink-0" />}
+        <span className={cn('flex-1 text-left truncate', isEmpty ? 'text-gray-400' : 'text-gray-900 font-medium')}>
+          {isEmpty ? placeholder : selectedLabel}
+        </span>
+        <ChevronDown size={14} className="text-gray-400 shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-2 w-[240px] max-h-[320px] overflow-y-auto">
+          {placeholder !== undefined && (
+            <button
+              type="button"
+              onClick={() => { onChange(''); setOpen(false); }}
+              className={cn(
+                'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[12px] rounded-md text-left transition-colors',
+                isEmpty ? 'bg-brand/10 text-brand font-medium' : 'text-gray-500 hover:bg-gray-100',
+              )}
+            >
+              <span className="truncate">{placeholder}</span>
+              {isEmpty && <Check size={12} className="shrink-0" />}
+            </button>
+          )}
+          {options.map((o) => {
+            const isSelected = String(o.value) === String(value);
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => { onChange(String(o.value)); setOpen(false); }}
+                className={cn(
+                  'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[12px] rounded-md text-left transition-colors',
+                  isSelected ? 'bg-brand/10 text-brand font-medium' : 'text-gray-600 hover:bg-gray-100',
+                )}
+              >
+                <span className="truncate">{o.label}</span>
+                {isSelected && <Check size={12} className="shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
