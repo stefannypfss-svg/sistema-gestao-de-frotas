@@ -736,26 +736,26 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
         <StateMessage>Nenhum equipamento ativo encontrado.</StateMessage>
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[75vh]">
             <table
-              className="text-left border-collapse"
+              className="text-left border-separate border-spacing-0"
               style={{ minWidth: `${88 + 200 + 84 + visibleDays.length * 46}px` }}
             >
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {/* Coluna ATIVO */}
-                  <th className="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[88px] min-w-[88px]">
+                  {/* Coluna ATIVO — fixa na horizontal (scroll de dias) e na vertical (scroll da página) */}
+                  <th className="sticky top-0 left-0 z-40 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[88px] min-w-[88px]">
                     Ativo
                   </th>
                   {/* Coluna EQUIPAMENTO */}
-                  <th className="sticky left-[88px] z-20 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[200px] min-w-[200px]">
+                  <th className="sticky top-0 left-[88px] z-40 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[200px] min-w-[200px]">
                     Equipamento
                   </th>
                   {/* Coluna % DISPONIBILIDADE — clicável, alterna asc/desc/padrão */}
                   <th
                     onClick={() => setSortPctDir((d) => (d === null ? 'asc' : d === 'asc' ? 'desc' : null))}
                     title="Ordenar por % de disponibilidade"
-                    className="sticky left-[288px] z-20 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[84px] min-w-[84px] text-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                    className="sticky top-0 left-[288px] z-40 bg-gray-50 px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 w-[84px] min-w-[84px] text-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
                   >
                     <span className="inline-flex items-center justify-center gap-1">
                       Disp. %
@@ -776,8 +776,8 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                       <th
                         key={d}
                         className={cn(
-                          'px-0 py-3 text-[10px] font-semibold text-gray-500 uppercase text-center w-[46px] min-w-[46px] border-l border-gray-100',
-                          isToday && 'bg-brand/5 text-brand',
+                          'sticky top-0 z-30 px-0 py-3 text-[10px] font-semibold text-gray-500 uppercase text-center w-[46px] min-w-[46px] border-l border-gray-100',
+                          isToday ? 'bg-brand-light text-brand' : 'bg-gray-50',
                         )}
                       >
                         {dayNum}
