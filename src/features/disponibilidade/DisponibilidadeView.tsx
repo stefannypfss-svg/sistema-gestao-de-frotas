@@ -17,7 +17,7 @@ import {
 } from '../../services/manutencaoReconciliation';
 import { useAuth } from '../../hooks/useAuth';
 import { recordChange } from '../../lib/lastChange';
-import { PageHeader, Button, FilterSelect, StateMessage } from '../../components/ui';
+import { PageHeader, Button, FilterSelect, MultiSelectPicker, StateMessage } from '../../components/ui';
 import { cn } from '../../lib/utils';
 import { MaintenancePopoverFlow, MFlowState } from './MaintenancePopoverFlow';
 import { EquipmentHistoryDrawer } from './EquipmentHistoryDrawer';
@@ -52,13 +52,22 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const userLabel = user?.displayName || user?.email || 'Sistema';
 
   const [filterYear, setFilterYear]     = useState(TODAY.getFullYear());
-  const [filterMonth, setFilterMonth]   = useState(TODAY.getMonth() + 1);
+  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set([String(TODAY.getMonth() + 1)]));
 
-  // Piso e teto da assinatura = exatamente o mês em tela (não o mês atual —
-  // navegar pra um mês passado tem que mover a janela junto). Assinatura sob
-  // demanda: abrir esta tela é o gatilho (ver useDisponibilidadeLazy).
-  const monthStart = format(new Date(filterYear, filterMonth - 1, 1), 'yyyy-MM-dd');
-  const monthEnd   = format(new Date(filterYear, filterMonth, 0), 'yyyy-MM-dd');
+  // Mês atual como fallback se o usuário limpar a seleção toda — a tela
+  // nunca fica sem nenhum mês em tela.
+  const mesesSelecionados = useMemo(() => {
+    const nums = [...filterMonths].map(Number).sort((a, b) => a - b);
+    return nums.length > 0 ? nums : [TODAY.getMonth() + 1];
+  }, [filterMonths]);
+
+  // Piso e teto da assinatura = do primeiro ao último mês selecionado (não
+  // o mês atual — navegar pra um mês passado tem que mover a janela junto).
+  // Com só 1 mês marcado, é exatamente o comportamento de antes — a janela
+  // só alarga quando o usuário de fato escolhe mais de um mês. Assinatura
+  // sob demanda: abrir esta tela é o gatilho (ver useDisponibilidadeLazy).
+  const monthStart = format(new Date(filterYear, mesesSelecionados[0] - 1, 1), 'yyyy-MM-dd');
+  const monthEnd   = format(new Date(filterYear, mesesSelecionados[mesesSelecionados.length - 1], 0), 'yyyy-MM-dd');
   const disponibilidade = useDisponibilidadeLazy(monthStart, monthEnd, userLabel);
   const [filterObra, setFilterObra]     = useState('');
   const [filterFamily, setFilterFamily] = useState('');
@@ -128,17 +137,23 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   }, [activeRegistros, eqMap]);
 
   const days = useMemo(() => {
-    const count = getDaysInMonth(new Date(filterYear, filterMonth - 1));
-    return Array.from({ length: count }, (_, i) =>
-      format(new Date(filterYear, filterMonth - 1, i + 1), 'yyyy-MM-dd'),
-    );
-  }, [filterYear, filterMonth]);
+    const result: string[] = [];
+    mesesSelecionados.forEach((mes) => {
+      const count = getDaysInMonth(new Date(filterYear, mes - 1));
+      for (let i = 0; i < count; i++) {
+        result.push(format(new Date(filterYear, mes - 1, i + 1), 'yyyy-MM-dd'));
+      }
+    });
+    return result;
+  }, [filterYear, mesesSelecionados]);
 
   // Seleção de dias específicos limpa ao trocar de mês/ano — os dias
-  // marcados no mês anterior não existem (ou significam outra coisa) no novo.
+  // marcados no(s) mês(es) anterior(es) não existem (ou significam outra
+  // coisa) no novo conjunto.
   useEffect(() => {
     setFilterDays(new Set());
-  }, [filterYear, filterMonth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterYear, mesesSelecionados.join(',')]);
 
   const visibleDays = useMemo(
     () => (filterDays.size > 0 ? days.filter((d) => filterDays.has(d)) : days),
@@ -476,7 +491,9 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   /* ── Export CSV ───────────────────────────────────────────────── */
 
   const exportCSV = () => {
-    const mesLabel = format(new Date(filterYear, filterMonth - 1, 1), 'MMMM_yyyy', { locale: ptBR });
+    const mesLabel = mesesSelecionados.length === 1
+      ? format(new Date(filterYear, mesesSelecionados[0] - 1, 1), 'MMMM_yyyy', { locale: ptBR })
+      : `${mesesSelecionados.length}meses_${filterYear}`;
     const headers  = ['Prefixo', 'Equipamento', 'Obra', ...visibleDays.map((d) => format(new Date(d + 'T12:00:00'), 'dd/MM'))];
     const dataRows = filteredRows.map((r) => [
       r.prefixo,
@@ -590,14 +607,14 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
         </div>
 
         {/* Mês */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-gray-500">Mês</label>
-          <FilterSelect
-            value={filterMonth}
-            onChange={(v) => setFilterMonth(Number(v))}
-            options={monthOptions.map((m) => ({ value: m.value, label: m.label }))}
-          />
-        </div>
+        <MultiSelectPicker
+          label="Mês"
+          options={monthOptions.map((m) => ({ value: String(m.value), label: m.label }))}
+          selected={filterMonths}
+          onChange={setFilterMonths}
+          layout="grid"
+          gridColumns={3}
+        />
 
         {/* Dias */}
         <div className="flex flex-col gap-1.5 relative" ref={dayPickerRef}>
