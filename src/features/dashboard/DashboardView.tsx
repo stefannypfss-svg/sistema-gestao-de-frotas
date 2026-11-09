@@ -495,8 +495,8 @@ export function DashboardView({ registros, equipments }: Props) {
       </div>
 
       {/* Tabela de registros ativos (Equip. por Obra) */}
-      <Card>
-        <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-4 items-center justify-between border-b border-gray-100">
+      <Card className="overflow-visible">
+        <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-3 flex-wrap">
             {/* Chips de filtros de gráfico */}
             {chartFilters.situacao && (
@@ -553,7 +553,9 @@ export function DashboardView({ registros, equipments }: Props) {
             </button>
           </div>
         </div>
+      </Card>
 
+      <Card className="mt-6">
         {/* Contador */}
         <div className="px-6 py-2 text-[12px] text-gray-400 border-b border-gray-50">
           {filteredActive.length} registro{filteredActive.length !== 1 ? 's' : ''}

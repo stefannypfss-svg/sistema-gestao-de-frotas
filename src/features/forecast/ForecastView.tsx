@@ -1,6 +1,6 @@
 import React from 'react';
-import { Download, Filter, Building2, Clock, Percent, Eraser, History } from 'lucide-react';
-import { format, addMonths } from 'date-fns';
+import { Download, Filter, Building2, Percent, Eraser } from 'lucide-react';
+import { format, addMonths, differenceInCalendarMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Equipment, EquipamentoObra, TabelaLocacao, Work } from '../../types';
 import { cn, formatCurrency } from '../../lib/utils';
@@ -9,13 +9,20 @@ import { computeForecastFromEquipObra, periodoMedicaoAtual } from '../../domain/
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
 import { eventoManutencaoRepository } from '../../services';
 import { EventoManutencao } from '../../types';
-import { PageHeader, Button, Card, FilterSelect } from '../../components/ui';
+import { PageHeader, Button, Card, FilterSelect, MultiSelectPicker } from '../../components/ui';
 
 const HOJE_STR = format(new Date(), 'yyyy-MM-dd');
 // Início do período de medição corrente (dia 20 do mês anterior, ou deste
 // mês se hoje ainda não passou do dia 19) — não o início do mês calendário,
 // pra cobrir dias de manutenção já registrados que caem antes do dia 1.
 const INICIO_PERIODO_ATUAL_STR = format(periodoMedicaoAtual().inicio, 'yyyy-MM-dd');
+// Ano/mês (calendário) do rótulo do período de medição corrente — base dos
+// defaults dos filtros Ano/Mês (mês atual + futuros já marcados).
+const PERIODO_ATUAL_ROTULO = periodoMedicaoAtual().rotulo;
+const ANO_ATUAL = PERIODO_ATUAL_ROTULO.getFullYear();
+const MES_ATUAL_NUM = PERIODO_ATUAL_ROTULO.getMonth() + 1;
+const MES_NUMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const MES_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 interface ForecastViewProps {
   equipments: Equipment[];
@@ -32,15 +39,63 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   tabelaLocacao,
   works,
 }) => {
-  const [period, setPeriod] = React.useState(12);
   const [filterObra, setFilterObra] = React.useState('');
   const [filterFamily, setFilterFamily] = React.useState('');
   const [efficiency, setEfficiency] = React.useState(100);
-  const [includePastPeriod, setIncludePastPeriod] = React.useState(false);
+  // Ano/Mês selecionados — vazio em qualquer um dos dois equivale a "Todos"
+  // (mesma convenção do MultiSelectPicker em outras telas). Por padrão só o
+  // ano corrente e os meses dele a partir do atual ficam marcados, pra
+  // mostrar "mês atual + futuros" sem precisar ler período passado nenhum;
+  // desmarcar tudo (botão "Limpar" do próprio filtro) libera o ano/mês pra
+  // "Todos", trazendo o passado também.
+  const [anoSelecionados, setAnoSelecionados] = React.useState<Set<string>>(
+    () => new Set([String(ANO_ATUAL)]),
+  );
+  const [mesSelecionados, setMesSelecionados] = React.useState<Set<string>>(
+    () => new Set(MES_NUMS.filter((m) => m >= MES_ATUAL_NUM).map(String)),
+  );
 
-  // Rótulo do período de medição já encerrado (o anterior ao corrente),
-  // pra deixar claro na tela qual mês o toggle está trazendo de volta.
-  const pastPeriodLabel = format(addMonths(periodoMedicaoAtual().rotulo, -1), 'MMM/yy', { locale: ptBR });
+  // Teto de passado disponível — quantos meses atrás existe mobilização
+  // registrada. Sem isso, marcar "Todos" tentaria ler o histórico inteiro da
+  // coleção `disponibilidade` (que cresce 1 doc/equipamento/dia), arriscando
+  // o mesmo estouro de cota já visto no backfill. Nunca passa de 36 (3 anos).
+  const maxPastPeriods = React.useMemo(() => {
+    const datas = equipamentoObra
+      .filter((r) => !r.dataEnvio && r.dataMobilizacao)
+      .map((r) => r.dataMobilizacao as string);
+    if (datas.length === 0) return 0;
+    const maisAntiga = [...datas].sort()[0];
+    const diff = differenceInCalendarMonths(periodoMedicaoAtual().rotulo, new Date(maisAntiga + 'T12:00:00'));
+    return Math.min(Math.max(diff, 0), 36);
+  }, [equipamentoObra]);
+
+  // Anos selecionáveis: do mais antigo com mobilização registrada até 2
+  // anos no futuro (mesmo teto do antigo filtro "Período: próximos 24 meses").
+  const anoOptions = React.useMemo(() => {
+    const anoMin = ANO_ATUAL - Math.ceil(maxPastPeriods / 12);
+    const anoMax = ANO_ATUAL + 2;
+    return Array.from({ length: anoMax - anoMin + 1 }, (_, i) => anoMin + i);
+  }, [maxPastPeriods]);
+
+  const mesOptions = MES_LABELS.map((label, i) => ({ value: String(i + 1), label }));
+
+  // Converte a seleção de Ano/Mês numa janela contínua de leitura/cálculo —
+  // o motor (`computeForecastFromEquipObra`) trabalha com uma sequência
+  // contínua de períodos a partir do corrente; o filtro aplicado abaixo
+  // depois descarta as colunas (ano,mês) que não foram marcadas.
+  const { mesesAnteriores, periodoForward } = React.useMemo(() => {
+    const anos = anoSelecionados.size === 0 ? anoOptions : anoOptions.filter((a) => anoSelecionados.has(String(a)));
+    const meses = mesSelecionados.size === 0 ? MES_NUMS : MES_NUMS.filter((m) => mesSelecionados.has(String(m)));
+    const idx = (ano: number, mes: number) => ano * 12 + (mes - 1);
+    const atualIdx = idx(ANO_ATUAL, MES_ATUAL_NUM);
+    const idxs = anos.flatMap((a) => meses.map((m) => idx(a, m)));
+    const minIdx = Math.min(atualIdx, ...idxs);
+    const maxIdx = Math.max(atualIdx, ...idxs);
+    return {
+      mesesAnteriores: Math.max(0, atualIdx - minIdx),
+      periodoForward: Math.max(1, maxIdx - atualIdx + 1),
+    };
+  }, [anoSelecionados, mesSelecionados, anoOptions]);
 
   const obras = works.map((w) => w.nome).sort();
   const families = uniqueFamilies(equipments);
@@ -48,11 +103,11 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   // Só até hoje — dias M/AO no futuro (ex.: manutenção agendada) ainda
   // contam como receita normal, já que não aconteceram. Sem isso, o
   // cálculo nunca precisaria olhar além do mês corrente.
-  // Com o período encerrado incluído, a janela de leitura precisa recuar um
-  // mês também — senão os dias M/AO daquele período ficam sem dado e a
-  // receita passada aparece cheia (sem descontar manutenção que já ocorreu).
-  const inicioLeituraStr = includePastPeriod
-    ? format(addMonths(periodoMedicaoAtual().inicio, -1), 'yyyy-MM-dd')
+  // Com períodos encerrados incluídos, a janela de leitura precisa recuar
+  // junto — senão os dias M/AO desses períodos ficam sem dado e a receita
+  // passada aparece cheia (sem descontar manutenção que já ocorreu).
+  const inicioLeituraStr = mesesAnteriores > 0
+    ? format(addMonths(periodoMedicaoAtual().inicio, -mesesAnteriores), 'yyyy-MM-dd')
     : INICIO_PERIODO_ATUAL_STR;
   const disponibilidade = useDisponibilidadeLazy(inicioLeituraStr, HOJE_STR);
 
@@ -71,35 +126,54 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
     };
   }, []);
 
-  const { rows, monthlyTotals, periodos } = computeForecastFromEquipObra(
+  const { rows: rowsFull, periodos: periodosFull } = computeForecastFromEquipObra(
     equipments,
     equipamentoObra,
     tabelaLocacao,
-    { period, filterObra, filterFamily },
+    { period: periodoForward, filterObra, filterFamily },
     disponibilidade.items,
     eventosManutencao,
-    includePastPeriod ? 1 : 0,
+    mesesAnteriores,
   );
+
+  // Descarta as colunas (ano,mês) fora da seleção — a chamada acima sempre
+  // calcula uma janela contínua (ver `mesesAnteriores`/`periodoForward`
+  // acima), que pode conter meses "no meio" não marcados (ex.: Ano = {2026,
+  // 2028}, sem 2027).
+  const indicesValidos = periodosFull
+    .map((p, i) => ({ i, ano: p.rotulo.getFullYear(), mes: p.rotulo.getMonth() + 1 }))
+    .filter(({ ano, mes }) =>
+      (anoSelecionados.size === 0 || anoSelecionados.has(String(ano))) &&
+      (mesSelecionados.size === 0 || mesSelecionados.has(String(mes))),
+    )
+    .map(({ i }) => i);
+
+  const periodos = indicesValidos.map((i) => periodosFull[i]);
+  const rows = rowsFull
+    .map((row) => ({ ...row, monthlyValues: indicesValidos.map((i) => row.monthlyValues[i]) }))
+    .filter((row) => row.monthlyValues.some((v) => v.value > 0));
+  const monthlyTotals = periodos.map((_, i) => rows.reduce((sum, row) => sum + row.monthlyValues[i].value, 0));
 
   const effectiveTotals = monthlyTotals.map((t) => (t * efficiency) / 100);
   const grandTotal = effectiveTotals.reduce((sum, v) => sum + v, 0);
 
   const clearFilters = () => {
-    setPeriod(12);
     setFilterObra('');
     setFilterFamily('');
     setEfficiency(100);
-    setIncludePastPeriod(false);
+    setAnoSelecionados(new Set([String(ANO_ATUAL)]));
+    setMesSelecionados(new Set(MES_NUMS.filter((m) => m >= MES_ATUAL_NUM).map(String)));
   };
 
   const exportToCSV = () => {
     const monthHeaders = periodos.map(
       (p) => `${format(p.rotulo, 'MMM/yy', { locale: ptBR })} (${format(p.inicio, 'dd/MM')}-${format(p.fim, 'dd/MM')})`,
     );
-    const headers = ['Prefixo', 'Família', 'Obra', ...monthHeaders];
+    const headers = ['Prefixo', 'Descrição', 'Família', 'Obra', ...monthHeaders];
 
     const dataRows = rows.map((row) => [
       row.prefixo,
+      row.descricao,
       row.familia,
       row.monthlyValues[0]?.obra ?? '',
       ...row.monthlyValues.map((v) => String(Math.round((v.value * efficiency) / 100))),
@@ -109,10 +183,11 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
       'TOTAL MENSAL',
       '',
       '',
+      '',
       ...effectiveTotals.map((t) => String(Math.round(t))),
     ];
 
-    const csv = [headers, ...dataRows].map((r) => r.join(';')).join('\n');
+    const csv = [headers, ...dataRows, totalRow].map((r) => r.join(';')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -136,19 +211,8 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
         }
       />
 
-      <Card className="rounded-xl">
+      <Card className="rounded-xl overflow-visible">
         <div className="px-5 py-4 flex flex-wrap gap-6 items-center">
-          <ForecastFilter label="Período" icon={Clock}>
-            <FilterSelect
-              value={period}
-              onChange={(v) => setPeriod(Number(v))}
-              options={[
-                { value: 6, label: 'Próximos 6 meses' },
-                { value: 12, label: 'Próximos 12 meses' },
-                { value: 24, label: 'Próximos 24 meses' },
-              ]}
-            />
-          </ForecastFilter>
           <ForecastFilter label="Obra" icon={Building2}>
             <FilterSelect
               value={filterObra}
@@ -172,21 +236,22 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               options={EFFICIENCY_OPTIONS.map((v) => ({ value: v, label: `${v}%` }))}
             />
           </ForecastFilter>
-          <ForecastFilter label="Histórico" icon={History}>
-            <button
-              type="button"
-              onClick={() => setIncludePastPeriod((v) => !v)}
-              title={`Inclui o período já encerrado (${pastPeriodLabel})`}
-              className={cn(
-                'h-[42px] px-3.5 rounded-full border text-[13px] font-medium transition-colors shadow-sm',
-                includePastPeriod
-                  ? 'bg-brand text-white border-brand'
-                  : 'bg-white text-gray-500 border-line hover:bg-surface-muted',
-              )}
-            >
-              {includePastPeriod ? `Incluindo ${pastPeriodLabel}` : `Incluir ${pastPeriodLabel}`}
-            </button>
-          </ForecastFilter>
+          <MultiSelectPicker
+            label="Ano"
+            options={anoOptions.map((a) => ({ value: String(a), label: String(a) }))}
+            selected={anoSelecionados}
+            onChange={setAnoSelecionados}
+            layout="grid"
+            gridColumns={3}
+          />
+          <MultiSelectPicker
+            label="Mês"
+            options={mesOptions}
+            selected={mesSelecionados}
+            onChange={setMesSelecionados}
+            layout="grid"
+            gridColumns={3}
+          />
           <button
             type="button"
             onClick={clearFilters}

@@ -149,8 +149,8 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
         />
       </div>
 
-      <Card>
-        <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-4 items-center justify-between border-b border-gray-100">
+      <Card className="overflow-visible">
+        <div className="p-5 sm:p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -222,7 +222,9 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
             </button>
           </div>
         </div>
+      </Card>
 
+      <Card className="mt-6">
         {loading ? (
           <StateMessage>Carregando equipamentos…</StateMessage>
         ) : error ? (
