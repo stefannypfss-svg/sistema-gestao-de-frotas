@@ -136,7 +136,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       </div>
 
       {/* Filtros + legenda */}
-      <Card className="rounded-xl">
+      <Card className="rounded-xl overflow-visible">
         <div className="px-4 py-3.5 flex flex-col md:flex-row justify-between gap-4 items-center">
           <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
             <div className="flex items-center gap-2">
