@@ -2,6 +2,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { eventoManutencaoRepository } from '../services';
 import { EventoManutencao } from '../types';
 import { Collection } from './useCollection';
+import { desconectarEventosManutencaoCompartilhados } from '../services/eventosManutencaoCompartilhados';
 
 /**
  * Assinatura sob demanda e paginada por período de `eventos_manutencao` —
@@ -41,6 +42,7 @@ function ensureSubscribed(dataInicio: string, dataFim: string) {
 }
 
 export function disconnectEventosManutencao(): void {
+  desconectarEventosManutencaoCompartilhados();
   unsubscribe?.();
   unsubscribe = null;
   currentRangeKey = null;

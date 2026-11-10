@@ -5,7 +5,8 @@ import { Download, X, Clock, AlertTriangle, ChevronDown, ArrowUp, ArrowDown, Arr
 import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento, EventoManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
-import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository, eventoManutencaoRepository } from '../../services';
+import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository } from '../../services';
+import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
 import { construirInfoExclusao, diaMDeveDescontar } from '../../domain/forecast';
 import {
   previewVinculoM,
@@ -98,16 +99,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   // de disponibilidade precisa saber o `tipo` (Avaria/Preventiva/...) de
   // qualquer manutenção vinculada, mesmo uma que começou antes do mês
   // aberto — mesmo padrão já usado na tela de Previsão de Receitas.
-  const [eventosManutencao, setEventosManutencao] = useState<EventoManutencao[]>([]);
-  useEffect(() => {
-    let cancelado = false;
-    eventoManutencaoRepository.list().then((todos) => {
-      if (!cancelado) setEventosManutencao(todos);
-    });
-    return () => {
-      cancelado = true;
-    };
-  }, []);
+  const eventosManutencao = useEventosManutencaoTodos();
 
   /* ── Dados derivados ──────────────────────────────────────────── */
 

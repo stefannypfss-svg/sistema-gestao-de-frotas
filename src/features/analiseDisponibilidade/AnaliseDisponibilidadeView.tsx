@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Info, Check } from 'lucide-react';
 import { Equipment, EquipamentoObra, DisponibilidadeStatus, EventoManutencao, SituacaoEquipamento } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
-import { eventoManutencaoRepository } from '../../services';
+import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
 import { construirInfoExclusao, classificarDiaM } from '../../domain/forecast';
 import { PageHeader, StateMessage, FilterSelect, StatCard } from '../../components/ui';
 import { cn } from '../../lib/utils';
@@ -125,16 +125,7 @@ export function AnaliseDisponibilidadeView({ equipments, equipamentoObra }: Prop
   // (Avaria/Preventiva/…) de qualquer evento vinculado, mesmo um que
   // começou num ano anterior e ainda está aberto (mesmo padrão já usado na
   // Previsão de Receitas e na Disponibilidade).
-  const [eventosManutencao, setEventosManutencao] = useState<EventoManutencao[]>([]);
-  useEffect(() => {
-    let cancelado = false;
-    eventoManutencaoRepository.list().then((todos) => {
-      if (!cancelado) setEventosManutencao(todos);
-    });
-    return () => {
-      cancelado = true;
-    };
-  }, []);
+  const eventosManutencao = useEventosManutencaoTodos();
 
   const recordMap = useMemo(() => {
     const m = new Map<string, DisponibilidadeStatus>();
