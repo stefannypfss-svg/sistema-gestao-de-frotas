@@ -9,7 +9,7 @@
  *
  * Para manter o comportamento de antes, a foto só é entregue depois que o
  * servidor confirmou o snapshot (não dados velhos do cache) — igual ao
- * `list()` — e cada chamador congela o resultado (não há atualização ao vivo
+ * `list()`; sem confirmação a tempo, usa o próprio `list()` — e cada chamador congela o resultado (não há atualização ao vivo
  * dentro de uma tela já aberta). Sem Firebase configurado, delega ao
  * `list()` do repositório local, como antes.
  *
@@ -22,7 +22,7 @@ import { COLLECTIONS, eventoManutencaoRepository } from './index';
 import { EventoManutencao } from '../types';
 import { contarSnapshot } from '../lib/readCounter';
 
-/** Se o servidor não confirmar nesse prazo (ex.: offline), entrega o que o cache tem. */
+/** Se o servidor não confirmar nesse prazo (ex.: offline), cai para `list()`, como antes. */
 const ESPERA_MAX_MS = 5000;
 
 let eventos: EventoManutencao[] = [];
@@ -65,11 +65,18 @@ export async function obterTodosEventosManutencao(): Promise<EventoManutencao[]>
   if (!isFirebaseConfigured || falhou) return eventoManutencaoRepository.list();
   garantirAssinatura();
   if (!confirmado) {
-    await new Promise<void>((resolve) => {
-      esperando.push(resolve);
-      setTimeout(resolve, ESPERA_MAX_MS);
+    const expirou = await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(true), ESPERA_MAX_MS);
+      esperando.push(() => {
+        clearTimeout(timer);
+        resolve(false);
+      });
     });
-    if (falhou) return eventoManutencaoRepository.list();
+    // Sem confirmação do servidor no prazo (ou assinatura com erro): nunca
+    // entrega o cache — pode estar vazio/velho e ficaria congelado na tela,
+    // mudando o cálculo (tipo Avaria/Preventiva dos eventos). Volta ao
+    // comportamento de antes: `list()`.
+    if (expirou || falhou) return eventoManutencaoRepository.list();
   }
   return eventos;
 }
