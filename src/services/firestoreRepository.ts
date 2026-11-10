@@ -12,6 +12,7 @@ import {
   Firestore,
 } from 'firebase/firestore';
 import { Repository, RangeFilter } from './repository';
+import { contarLeituras, contarSnapshot } from '../lib/readCounter';
 
 /**
  * Implementação de `Repository` sobre o Cloud Firestore.
@@ -48,6 +49,7 @@ export class FirestoreRepository<T> implements Repository<T> {
 
   async list(): Promise<T[]> {
     const snapshot = await getDocs(this.ref);
+    contarLeituras(`getDocs:${this.collectionName}`, snapshot.size);
     return snapshot.docs.map((d) => d.data() as T);
   }
 
@@ -80,7 +82,10 @@ export class FirestoreRepository<T> implements Repository<T> {
   ): () => void {
     return onSnapshot(
       this.withRange(range),
-      (snapshot) => onChange(snapshot.docs.map((d) => d.data() as T)),
+      (snapshot) => {
+        contarSnapshot(`onSnapshot:${this.collectionName}`, snapshot);
+        onChange(snapshot.docs.map((d) => d.data() as T));
+      },
       (error) => onError?.(error),
     );
   }

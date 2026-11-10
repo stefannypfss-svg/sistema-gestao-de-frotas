@@ -14,6 +14,7 @@ import { LocalStorageRepository } from './localStorageRepository';
 import { FirestoreRepository } from './firestoreRepository';
 import { db, isFirebaseConfigured } from './firebase';
 import { seedFirestore } from './seedFirestore';
+import { contarLeituras } from '../lib/readCounter';
 import { INITIAL_EQUIPMENT, INITIAL_WORKS } from '../data/seed';
 
 export const COLLECTIONS = {
@@ -226,6 +227,7 @@ export async function fetchIntervalo(
         where('data', '<=', dataFim),
       ),
     );
+    contarLeituras('getDocs:disponibilidade (fetchIntervalo)', snapshot.size);
     return snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
   } catch (e) {
     console.error(
@@ -268,6 +270,7 @@ export async function fetchUltimoRegistroAntes(
         limit(1),
       ),
     );
+    contarLeituras('getDocs:disponibilidade (fetchUltimoRegistroAntes)', snapshot.size);
     return snapshot.empty ? null : (snapshot.docs[0].data() as DisponibilidadeRecord);
   } catch (e) {
     console.error(
@@ -317,6 +320,7 @@ export async function fetchUltimosRegistros(
         where('data', '<', antesDe),
       ),
     );
+    contarLeituras('getDocs:disponibilidade (fetchUltimosRegistros)', snapshot.size);
     snapshot.docs.forEach((d) => registrar(d.data() as DisponibilidadeRecord));
     return porPrefixo;
   } catch (e) {

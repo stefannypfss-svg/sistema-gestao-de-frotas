@@ -3,6 +3,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../services/firebase';
 import { COLLECTIONS, disponibilidadeRepository } from '../services';
 import { DisponibilidadeRecord } from '../types';
+import { contarSnapshot } from '../lib/readCounter';
 
 /**
  * Leitura dedicada para o card "status de hoje" do Dashboard — só o dia
@@ -27,6 +28,7 @@ export function useDisponibilidadeHoje(dataISO: string): DisponibilidadeRecord[]
 
     const q = query(collection(db, COLLECTIONS.disponibilidade), where('data', '==', dataISO));
     return onSnapshot(q, (snapshot) => {
+      contarSnapshot('onSnapshot:disponibilidade (hoje)', snapshot);
       setItems(snapshot.docs.map((d) => d.data() as DisponibilidadeRecord));
     });
   }, [dataISO]);
