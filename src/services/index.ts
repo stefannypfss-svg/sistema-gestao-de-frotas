@@ -240,6 +240,39 @@ export async function fetchIntervalo(
 }
 
 /**
+ * Dias de `disponibilidade` vinculados a um evento (`eventoId == id`). Query
+ * de campo único (sem índice composto) — lê só os documentos do evento, em
+ * vez da coleção inteira para filtrar em memória.
+ */
+export async function fetchDiasDoEvento(eventoId: string): Promise<DisponibilidadeRecord[]> {
+  if (!isFirebaseConfigured) {
+    const all = await disponibilidadeRepository.list();
+    return all.filter((d) => d.eventoId === eventoId);
+  }
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.disponibilidade), where('eventoId', '==', eventoId)),
+  );
+  contarLeituras('getDocs:disponibilidade (fetchDiasDoEvento)', snapshot.size);
+  return snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
+}
+
+/**
+ * Eventos de manutenção de um equipamento (`prefixo == X`). Query de campo
+ * único — lê só os eventos daquele prefixo, não a coleção inteira.
+ */
+export async function fetchEventosDoPrefixo(prefixo: string): Promise<EventoManutencao[]> {
+  if (!isFirebaseConfigured) {
+    const all = await eventoManutencaoRepository.list();
+    return all.filter((e) => e.prefixo === prefixo);
+  }
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.eventosManutencao), where('prefixo', '==', prefixo)),
+  );
+  contarLeituras('getDocs:eventos_manutencao (fetchEventosDoPrefixo)', snapshot.size);
+  return snapshot.docs.map((d) => d.data() as EventoManutencao);
+}
+
+/**
  * Último `status_dia` registrado de um equipamento antes de `antesDe`
  * (exclusivo), ou `null` se não houver nenhum. Leitura pontual, 1 documento,
  * independente do range da assinatura paginada — usada como fallback do
