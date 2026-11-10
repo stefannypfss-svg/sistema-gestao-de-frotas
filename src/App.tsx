@@ -4,6 +4,7 @@ import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
 import { disconnectDisponibilidade } from './hooks/useDisponibilidadeLazy';
 import { disconnectEventosManutencao } from './hooks/useEventosManutencaoLazy';
+import { desconectarDisponibilidadeHoje } from './hooks/useDisponibilidadeHoje';
 import { garantirMigracaoSinistroAvaria } from './services/manutencaoBackfill';
 import { TabId } from './config/navigation';
 import { Topbar } from './components/layout/Topbar';
@@ -32,6 +33,7 @@ function AppShell() {
   React.useEffect(() => () => {
     disconnectDisponibilidade();
     disconnectEventosManutencao();
+    desconectarDisponibilidadeHoje();
   }, []);
 
   // Migração pontual (tipo legado 'Sinistro' → 'Avaria'): roda sozinha uma
