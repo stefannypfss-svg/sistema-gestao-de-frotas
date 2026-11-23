@@ -48,6 +48,9 @@ const TODAY_STR = format(TODAY, 'yyyy-MM-dd');
  * mais tempo que isso cai pro fallback individual, por equipamento. */
 const AUTO_COPY_LOOKBACK_DAYS = 14;
 
+/** Manutenção do tipo Avaria ('Sinistro' = grafia legada) — célula mostra "M-AV". */
+const ehAvaria = (tipo: string | null) => tipo === 'Avaria' || tipo === 'Sinistro';
+
 export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const { user } = useAuth();
   const userLabel = user?.displayName || user?.email || 'Sistema';
@@ -888,7 +891,9 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                                 cfg ? [cfg.bg, cfg.text] : 'text-transparent hover:bg-gray-100',
                               )}
                             >
-                              {status ?? '·'}
+                              {status === 'M' && ehAvaria(infoExclusao.tipoEfetivoPorDia.get(id) ?? null)
+                                ? 'M-AV'
+                                : (status ?? '·')}
                               {hasHorario && <Clock size={8} className="shrink-0" />}
                             </button>
 
