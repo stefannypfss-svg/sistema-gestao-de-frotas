@@ -5,7 +5,8 @@ import { Download, X, Clock, AlertTriangle, ChevronDown, ArrowUp, ArrowDown, Arr
 import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento, EventoManutencao } from '../../types';
 import { Collection } from '../../hooks/useCollection';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
-import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository, eventoManutencaoRepository } from '../../services';
+import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository } from '../../services';
+import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
 import { construirInfoExclusao, diaMDeveDescontar } from '../../domain/forecast';
 import {
   previewVinculoM,
@@ -46,6 +47,9 @@ const TODAY_STR = format(TODAY, 'yyyy-MM-dd');
  * dias sem abrir o sistema) numa leitura só. Equipamento em silêncio por
  * mais tempo que isso cai pro fallback individual, por equipamento. */
 const AUTO_COPY_LOOKBACK_DAYS = 14;
+
+/** Manutenção do tipo Avaria ('Sinistro' = grafia legada) — célula mostra "M-AV". */
+const ehAvaria = (tipo: string | null) => tipo === 'Avaria' || tipo === 'Sinistro';
 
 export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   const { user } = useAuth();
@@ -98,16 +102,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
   // de disponibilidade precisa saber o `tipo` (Avaria/Preventiva/...) de
   // qualquer manutenção vinculada, mesmo uma que começou antes do mês
   // aberto — mesmo padrão já usado na tela de Previsão de Receitas.
-  const [eventosManutencao, setEventosManutencao] = useState<EventoManutencao[]>([]);
-  useEffect(() => {
-    let cancelado = false;
-    eventoManutencaoRepository.list().then((todos) => {
-      if (!cancelado) setEventosManutencao(todos);
-    });
-    return () => {
-      cancelado = true;
-    };
-  }, []);
+  const eventosManutencao = useEventosManutencaoTodos();
 
   /* ── Dados derivados ──────────────────────────────────────────── */
 
@@ -896,7 +891,9 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
                                 cfg ? [cfg.bg, cfg.text] : 'text-transparent hover:bg-gray-100',
                               )}
                             >
-                              {status ?? '·'}
+                              {status === 'M' && ehAvaria(infoExclusao.tipoEfetivoPorDia.get(id) ?? null)
+                                ? 'M-AV'
+                                : (status ?? '·')}
                               {hasHorario && <Clock size={8} className="shrink-0" />}
                             </button>
 

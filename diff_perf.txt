@@ -1,0 +1,744 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 3ec2c31..2b3690d 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,6 +4,7 @@ import { useStore } from './hooks/useStore';
+ import { useAuth } from './hooks/useAuth';
+ import { disconnectDisponibilidade } from './hooks/useDisponibilidadeLazy';
+ import { disconnectEventosManutencao } from './hooks/useEventosManutencaoLazy';
++import { desconectarDisponibilidadeHoje } from './hooks/useDisponibilidadeHoje';
+ import { garantirMigracaoSinistroAvaria } from './services/manutencaoBackfill';
+ import { TabId } from './config/navigation';
+ import { Topbar } from './components/layout/Topbar';
+@@ -32,6 +33,7 @@ function AppShell() {
+   React.useEffect(() => () => {
+     disconnectDisponibilidade();
+     disconnectEventosManutencao();
++    desconectarDisponibilidadeHoje();
+   }, []);
+ 
+   // Migração pontual (tipo legado 'Sinistro' → 'Avaria'): roda sozinha uma
+diff --git a/src/features/analiseDisponibilidade/AnaliseDisponibilidadeView.tsx b/src/features/analiseDisponibilidade/AnaliseDisponibilidadeView.tsx
+index 7267fef..a1ad682 100644
+--- a/src/features/analiseDisponibilidade/AnaliseDisponibilidadeView.tsx
++++ b/src/features/analiseDisponibilidade/AnaliseDisponibilidadeView.tsx
+@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Info, Check } from 'lucide-react';
+ import { Equipment, EquipamentoObra, DisponibilidadeStatus, EventoManutencao, SituacaoEquipamento } from '../../types';
+ import { Collection } from '../../hooks/useCollection';
+ import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
+-import { eventoManutencaoRepository } from '../../services';
++import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
+ import { construirInfoExclusao, classificarDiaM } from '../../domain/forecast';
+ import { PageHeader, StateMessage, FilterSelect, StatCard } from '../../components/ui';
+ import { cn } from '../../lib/utils';
+@@ -125,16 +125,7 @@ export function AnaliseDisponibilidadeView({ equipments, equipamentoObra }: Prop
+   // (Avaria/Preventiva/…) de qualquer evento vinculado, mesmo um que
+   // começou num ano anterior e ainda está aberto (mesmo padrão já usado na
+   // Previsão de Receitas e na Disponibilidade).
+-  const [eventosManutencao, setEventosManutencao] = useState<EventoManutencao[]>([]);
+-  useEffect(() => {
+-    let cancelado = false;
+-    eventoManutencaoRepository.list().then((todos) => {
+-      if (!cancelado) setEventosManutencao(todos);
+-    });
+-    return () => {
+-      cancelado = true;
+-    };
+-  }, []);
++  const eventosManutencao = useEventosManutencaoTodos();
+ 
+   const recordMap = useMemo(() => {
+     const m = new Map<string, DisponibilidadeStatus>();
+diff --git a/src/features/disponibilidade/DisponibilidadeView.tsx b/src/features/disponibilidade/DisponibilidadeView.tsx
+index 000cedf..3eae48b 100644
+--- a/src/features/disponibilidade/DisponibilidadeView.tsx
++++ b/src/features/disponibilidade/DisponibilidadeView.tsx
+@@ -5,7 +5,8 @@ import { Download, X, Clock, AlertTriangle, ChevronDown, ArrowUp, ArrowDown, Arr
+ import { Equipment, EquipamentoObra, DisponibilidadeRecord, DisponibilidadeStatus, TipoManutencao, SistemaManutencao, SituacaoEquipamento, EventoManutencao } from '../../types';
+ import { Collection } from '../../hooks/useCollection';
+ import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
+-import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository, eventoManutencaoRepository } from '../../services';
++import { fetchUltimosRegistros, fetchUltimoRegistroAntes, disponibilidadeRepository } from '../../services';
++import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
+ import { construirInfoExclusao, diaMDeveDescontar } from '../../domain/forecast';
+ import {
+   previewVinculoM,
+@@ -98,16 +99,7 @@ export function DisponibilidadeView({ equipments, equipamentoObra }: Props) {
+   // de disponibilidade precisa saber o `tipo` (Avaria/Preventiva/...) de
+   // qualquer manutenção vinculada, mesmo uma que começou antes do mês
+   // aberto — mesmo padrão já usado na tela de Previsão de Receitas.
+-  const [eventosManutencao, setEventosManutencao] = useState<EventoManutencao[]>([]);
+-  useEffect(() => {
+-    let cancelado = false;
+-    eventoManutencaoRepository.list().then((todos) => {
+-      if (!cancelado) setEventosManutencao(todos);
+-    });
+-    return () => {
+-      cancelado = true;
+-    };
+-  }, []);
++  const eventosManutencao = useEventosManutencaoTodos();
+ 
+   /* ── Dados derivados ──────────────────────────────────────────── */
+ 
+diff --git a/src/features/disponibilidade/EquipmentHistoryDrawer.tsx b/src/features/disponibilidade/EquipmentHistoryDrawer.tsx
+index e9f34d1..1007e6f 100644
+--- a/src/features/disponibilidade/EquipmentHistoryDrawer.tsx
++++ b/src/features/disponibilidade/EquipmentHistoryDrawer.tsx
+@@ -1,6 +1,6 @@
+ import React, { useEffect, useState } from 'react';
+ import { Drawer, StateMessage } from '../../components/ui';
+-import { eventoManutencaoRepository } from '../../services';
++import { obterTodosEventosManutencao } from '../../services/eventosManutencaoCompartilhados';
+ import { EventoManutencao } from '../../types';
+ 
+ interface Props {
+@@ -30,7 +30,7 @@ export function EquipmentHistoryDrawer({ prefixo, descricao, onClose }: Props) {
+   useEffect(() => {
+     let cancelado = false;
+     (async () => {
+-      const todos = await eventoManutencaoRepository.list();
++      const todos = await obterTodosEventosManutencao();
+       if (!cancelado) {
+         setEventos(todos.filter((e) => e.prefixo === prefixo).sort((a, b) => b.dataInicio.localeCompare(a.dataInicio)));
+       }
+diff --git a/src/features/forecast/ForecastView.tsx b/src/features/forecast/ForecastView.tsx
+index 634087a..f38290f 100644
+--- a/src/features/forecast/ForecastView.tsx
++++ b/src/features/forecast/ForecastView.tsx
+@@ -7,8 +7,7 @@ import { cn, formatCurrency } from '../../lib/utils';
+ import { uniqueFamilies } from '../../domain/equipment';
+ import { computeForecastFromEquipObra, periodoMedicaoAtual } from '../../domain/forecast';
+ import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
+-import { eventoManutencaoRepository } from '../../services';
+-import { EventoManutencao } from '../../types';
++import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
+ import { PageHeader, Button, Card, FilterSelect, MultiSelectPicker } from '../../components/ui';
+ 
+ const HOJE_STR = format(new Date(), 'yyyy-MM-dd');
+@@ -115,16 +114,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
+   // evento pode ter começado num mês anterior e ainda estar aberto agora
+   // (dataInicio ficaria fora de qualquer range mensal) — precisamos do
+   // `tipo` dele mesmo assim, pra não excluir Avaria por engano.
+-  const [eventosManutencao, setEventosManutencao] = React.useState<EventoManutencao[]>([]);
+-  React.useEffect(() => {
+-    let cancelado = false;
+-    eventoManutencaoRepository.list().then((todos) => {
+-      if (!cancelado) setEventosManutencao(todos);
+-    });
+-    return () => {
+-      cancelado = true;
+-    };
+-  }, []);
++  const eventosManutencao = useEventosManutencaoTodos();
+ 
+   const { rows: rowsFull, periodos: periodosFull } = computeForecastFromEquipObra(
+     equipments,
+diff --git a/src/features/manutencao/ManutencaoView.tsx b/src/features/manutencao/ManutencaoView.tsx
+index 26510fd..b0ded23 100644
+--- a/src/features/manutencao/ManutencaoView.tsx
++++ b/src/features/manutencao/ManutencaoView.tsx
+@@ -7,7 +7,7 @@ import { Collection } from '../../hooks/useCollection';
+ import { useEventosManutencaoLazy } from '../../hooks/useEventosManutencaoLazy';
+ import { verificarAberto, diasSemAtualizacao } from '../../services/manutencaoQueries';
+ import { executarBackfillManutencao } from '../../services/manutencaoBackfill';
+-import { disponibilidadeRepository } from '../../services';
++import { disponibilidadeRepository, fetchDiasDoEvento } from '../../services';
+ import { PageHeader, StatCard, FilterSelect, MultiSelectPicker, StateMessage, Button } from '../../components/ui';
+ import { cn } from '../../lib/utils';
+ 
+@@ -252,8 +252,7 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
+     }
+     setDeletingId(evento.id);
+     try {
+-      const todos = await disponibilidadeRepository.list();
+-      const diasDoEvento = todos.filter((d) => d.eventoId === evento.id);
++      const diasDoEvento = await fetchDiasDoEvento(evento.id);
+       for (const dia of diasDoEvento) {
+         const { eventoId, ...resto } = dia;
+         await disponibilidadeRepository.update(dia.id, resto);
+diff --git a/src/hooks/useDisponibilidadeHoje.ts b/src/hooks/useDisponibilidadeHoje.ts
+index 0f7185f..bb7ed1a 100644
+--- a/src/hooks/useDisponibilidadeHoje.ts
++++ b/src/hooks/useDisponibilidadeHoje.ts
+@@ -3,14 +3,68 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
+ import { db, isFirebaseConfigured } from '../services/firebase';
+ import { COLLECTIONS, disponibilidadeRepository } from '../services';
+ import { DisponibilidadeRecord } from '../types';
++import { contarSnapshot } from '../lib/readCounter';
+ 
+ /**
+- * Leitura dedicada para o card "status de hoje" do Dashboard — só o dia
+- * pedido, via `where('data', '==', data)`, em vez de puxar a coleção
+- * `disponibilidade` inteira (que cresce 1 doc/equipamento/dia sem limite).
+- * Sem Firebase configurado (modo local), filtra a lista do
++ * Leitura dedicada para o card "status de hoje" do Dashboard e da tela de
++ * Mão de Obra — só o dia pedido, via `where('data', '==', data)`, em vez de
++ * puxar a coleção `disponibilidade` inteira (que cresce 1 doc/equipamento/dia
++ * sem limite). Sem Firebase configurado (modo local), filtra a lista do
+  * `disponibilidadeRepository` — sem custo real, é só um array em memória.
++ *
++ * A assinatura é compartilhada e mantida viva durante a sessão (uma por data):
++ * antes, cada vez que Dashboard ou Mão de Obra montava, um `onSnapshot` novo
++ * era aberto (e fechado ao trocar de aba), relendo o dia. Agora as telas só
++ * se penduram na assinatura existente. `desconectarDisponibilidadeHoje`
++ * encerra tudo no logout (ver `AppShell`).
+  */
++
++interface Entrada {
++  items: DisponibilidadeRecord[];
++  recebeu: boolean;
++  ouvintes: Set<(items: DisponibilidadeRecord[]) => void>;
++  unsubscribe: () => void;
++}
++
++const entradas = new Map<string, Entrada>();
++
++function assinar(dataISO: string, ouvinte: (items: DisponibilidadeRecord[]) => void): () => void {
++  // Só uma data viva por vez: descarta as de outros dias que ninguém mais usa.
++  entradas.forEach((e, data) => {
++    if (data !== dataISO && e.ouvintes.size === 0) {
++      e.unsubscribe();
++      entradas.delete(data);
++    }
++  });
++
++  let entrada = entradas.get(dataISO);
++  if (!entrada) {
++    const nova: Entrada = { items: [], recebeu: false, ouvintes: new Set(), unsubscribe: () => {} };
++    const q = query(collection(db, COLLECTIONS.disponibilidade), where('data', '==', dataISO));
++    nova.unsubscribe = onSnapshot(q, (snapshot) => {
++      contarSnapshot('onSnapshot:disponibilidade (hoje)', snapshot);
++      nova.items = snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
++      nova.recebeu = true;
++      nova.ouvintes.forEach((o) => o(nova.items));
++    });
++    entradas.set(dataISO, nova);
++    entrada = nova;
++  }
++
++  entrada.ouvintes.add(ouvinte);
++  if (entrada.recebeu) ouvinte(entrada.items);
++  const viva = entrada;
++  return () => {
++    viva.ouvintes.delete(ouvinte);
++  };
++}
++
++/** Encerra as assinaturas compartilhadas (logout). */
++export function desconectarDisponibilidadeHoje(): void {
++  entradas.forEach((e) => e.unsubscribe());
++  entradas.clear();
++}
++
+ export function useDisponibilidadeHoje(dataISO: string): DisponibilidadeRecord[] {
+   const [items, setItems] = useState<DisponibilidadeRecord[]>([]);
+ 
+@@ -25,10 +79,7 @@ export function useDisponibilidadeHoje(dataISO: string): DisponibilidadeRecord[]
+       };
+     }
+ 
+-    const q = query(collection(db, COLLECTIONS.disponibilidade), where('data', '==', dataISO));
+-    return onSnapshot(q, (snapshot) => {
+-      setItems(snapshot.docs.map((d) => d.data() as DisponibilidadeRecord));
+-    });
++    return assinar(dataISO, setItems);
+   }, [dataISO]);
+ 
+   return items;
+diff --git a/src/hooks/useDisponibilidadeLazy.ts b/src/hooks/useDisponibilidadeLazy.ts
+index bb6b2e9..17a7bbb 100644
+--- a/src/hooks/useDisponibilidadeLazy.ts
++++ b/src/hooks/useDisponibilidadeLazy.ts
+@@ -1,34 +1,46 @@
+-import { useCallback, useSyncExternalStore } from 'react';
++import { useCallback, useMemo, useSyncExternalStore } from 'react';
+ import { disponibilidadeRepository } from '../services';
+ import { DisponibilidadeRecord } from '../types';
+ import { Collection } from './useCollection';
+ import { recordChange } from '../lib/lastChange';
++import { Janela, janelaCobre, recortarPorData, uniaoJanelas } from '../lib/janelaDisponibilidade';
+ 
+ /**
+  * Assinatura sob demanda e paginada por período da coleção `disponibilidade`.
+  *
+  * A primeira tela que chamar `useDisponibilidadeLazy` dispara o `onSnapshot`
+- * — filtrado por `[dataInicio, dataFim]`, não a coleção inteira — uma vez
+- * só. Quem nunca abre a tela de Disponibilidade não paga nada. A partir daí
+- * a assinatura vive em escopo de módulo, fora do ciclo de vida de qualquer
+- * componente: trocar de aba e voltar, com o mesmo intervalo, não reassina.
+- * Só quando o intervalo pedido MUDA (usuário troca de mês) é que a
+- * assinatura anterior é encerrada e uma nova, para o novo intervalo, é
+- * aberta — esse é o custo esperado da paginação, e é bem menor que o
+- * full-scan que substitui.
++ * — filtrado por período, não a coleção inteira — uma vez só. A assinatura
++ * vive em escopo de módulo, fora do ciclo de vida de qualquer componente.
++ *
++ * Janela só-crescente: cada tela pede um intervalo diferente (Previsão =
++ * início do 1º período → hoje; Disponibilidade = mês(es) em tela; Análise =
++ * ano). Antes, cada troca de intervalo cancelava e recriava a assinatura,
++ * relendo os documentos a cada troca de aba. Agora a assinatura cobre a
++ * UNIÃO dos intervalos já pedidos na sessão e só é refeita quando uma tela
++ * pede algo fora da janela atual (ela alarga, nunca encolhe). Cada tela
++ * recebe apenas o recorte `[dataInicio, dataFim]` que pediu — o mesmo
++ * conjunto que a query antiga devolvia — e enquanto a janela ainda não
++ * cobre o pedido ela vê `items: []` + `loading: true`, como antes.
+  *
+  * `disconnectDisponibilidade` encerra a assinatura; chamar só no logout
+  * (ver `AppShell`), nunca em cleanup de tela.
+  */
+ 
+ interface State {
++  /** Documentos crus da assinatura — cobrem `carregada`, nada além. */
+   items: DisponibilidadeRecord[];
+   loading: boolean;
+   error: string | null;
++  /** Janela que `items` já cobre (null enquanto o 1º snapshot não chegou). */
++  carregada: Janela | null;
+ }
+ 
+-let state: State = { items: [], loading: true, error: null };
+-let currentRangeKey: string | null = null;
++const ESTADO_VAZIO: State = { items: [], loading: true, error: null, carregada: null };
++
++const EMPTY: DisponibilidadeRecord[] = [];
++
++let state: State = ESTADO_VAZIO;
++let janelaAssinada: Janela | null = null;
+ let unsubscribe: (() => void) | null = null;
+ const listeners = new Set<() => void>();
+ 
+@@ -37,25 +49,25 @@ function setState(partial: Partial<State>) {
+   listeners.forEach((l) => l());
+ }
+ 
+-function ensureSubscribed(dataInicio: string, dataFim: string) {
+-  const key = `${dataInicio}|${dataFim}`;
+-  if (currentRangeKey === key && unsubscribe) return;
++function ensureSubscribed(pedida: Janela) {
++  if (unsubscribe && janelaAssinada && janelaCobre(janelaAssinada, pedida)) return;
+ 
++  const alvo = janelaAssinada ? uniaoJanelas(janelaAssinada, pedida) : pedida;
+   unsubscribe?.();
+-  currentRangeKey = key;
+-  state = { items: [], loading: true, error: null };
++  janelaAssinada = alvo;
++  state = ESTADO_VAZIO;
+   unsubscribe = disponibilidadeRepository.subscribe!(
+-    (items) => setState({ items, loading: false, error: null }),
++    (items) => setState({ items, loading: false, error: null, carregada: alvo }),
+     (e) => setState({ error: e.message, loading: false }),
+-    { gte: dataInicio, lte: dataFim },
++    { gte: alvo.ini, lte: alvo.fim },
+   );
+ }
+ 
+ export function disconnectDisponibilidade(): void {
+   unsubscribe?.();
+   unsubscribe = null;
+-  currentRangeKey = null;
+-  state = { items: [], loading: true, error: null };
++  janelaAssinada = null;
++  state = ESTADO_VAZIO;
+ }
+ 
+ function subscribeStore(cb: () => void) {
+@@ -72,9 +84,19 @@ export function useDisponibilidadeLazy(
+   dataFim: string,
+   userLabel?: string,
+ ): Collection<DisponibilidadeRecord> {
+-  ensureSubscribed(dataInicio, dataFim);
++  ensureSubscribed({ ini: dataInicio, fim: dataFim });
+   const snapshot = useSyncExternalStore(subscribeStore, getSnapshot);
+ 
++  const { items: rawItems, carregada } = snapshot;
++  const cobertura = carregada !== null && janelaCobre(carregada, { ini: dataInicio, fim: dataFim });
++  const items = useMemo(
++    () => (cobertura ? recortarPorData(rawItems, { ini: dataInicio, fim: dataFim }) : EMPTY),
++    [cobertura, rawItems, dataInicio, dataFim],
++  );
++  // Janela ainda não cobre o pedido (alargando): comporta-se como antes de uma
++  // troca de intervalo — sem itens e carregando.
++  const loading = cobertura ? snapshot.loading : snapshot.error ? false : true;
++
+   const create = useCallback(
+     async (item: DisponibilidadeRecord) => {
+       await disponibilidadeRepository.create(item);
+@@ -100,8 +122,12 @@ export function useDisponibilidadeLazy(
+   );
+ 
+   const reload = useCallback(async () => {
+-    setState({ items: await disponibilidadeRepository.list() });
++    // Coleção inteira: cobre qualquer recorte pedido, até o próximo snapshot.
++    setState({
++      items: await disponibilidadeRepository.list(),
++      carregada: { ini: '0000-01-01', fim: '9999-12-31' },
++    });
+   }, []);
+ 
+-  return { items: snapshot.items, loading: snapshot.loading, error: snapshot.error, create, update, remove, reload };
++  return { items, loading, error: snapshot.error, create, update, remove, reload };
+ }
+diff --git a/src/hooks/useEventosManutencaoLazy.ts b/src/hooks/useEventosManutencaoLazy.ts
+index 1a806ba..1697b33 100644
+--- a/src/hooks/useEventosManutencaoLazy.ts
++++ b/src/hooks/useEventosManutencaoLazy.ts
+@@ -2,6 +2,7 @@ import { useCallback, useSyncExternalStore } from 'react';
+ import { eventoManutencaoRepository } from '../services';
+ import { EventoManutencao } from '../types';
+ import { Collection } from './useCollection';
++import { desconectarEventosManutencaoCompartilhados } from '../services/eventosManutencaoCompartilhados';
+ 
+ /**
+  * Assinatura sob demanda e paginada por período de `eventos_manutencao` —
+@@ -41,6 +42,7 @@ function ensureSubscribed(dataInicio: string, dataFim: string) {
+ }
+ 
+ export function disconnectEventosManutencao(): void {
++  desconectarEventosManutencaoCompartilhados();
+   unsubscribe?.();
+   unsubscribe = null;
+   currentRangeKey = null;
+diff --git a/src/hooks/useEventosManutencaoTodos.ts b/src/hooks/useEventosManutencaoTodos.ts
+new file mode 100644
+index 0000000..b5ca1cc
+--- /dev/null
++++ b/src/hooks/useEventosManutencaoTodos.ts
+@@ -0,0 +1,23 @@
++import { useEffect, useState } from 'react';
++import { obterTodosEventosManutencao } from '../services/eventosManutencaoCompartilhados';
++import { EventoManutencao } from '../types';
++
++/**
++ * Todos os eventos de manutenção, lidos uma vez ao montar (a "foto" não
++ * atualiza dentro da tela aberta) — substitui o `list()` por montagem que as
++ * telas faziam. A coleção é lida do Firestore uma vez por sessão (ver
++ * `services/eventosManutencaoCompartilhados.ts`).
++ */
++export function useEventosManutencaoTodos(): EventoManutencao[] {
++  const [eventos, setEventos] = useState<EventoManutencao[]>([]);
++  useEffect(() => {
++    let cancelado = false;
++    obterTodosEventosManutencao().then((todos) => {
++      if (!cancelado) setEventos(todos);
++    });
++    return () => {
++      cancelado = true;
++    };
++  }, []);
++  return eventos;
++}
+diff --git a/src/lib/janelaDisponibilidade.ts b/src/lib/janelaDisponibilidade.ts
+new file mode 100644
+index 0000000..332b22f
+--- /dev/null
++++ b/src/lib/janelaDisponibilidade.ts
+@@ -0,0 +1,35 @@
++/**
++ * Helpers puros da assinatura compartilhada de `disponibilidade`
++ * (ver `hooks/useDisponibilidadeLazy.ts`).
++ *
++ * A assinatura única mantém uma janela de datas que só cresce durante a
++ * sessão; cada tela vê apenas o recorte `[ini, fim]` que pediu — exatamente
++ * o conjunto que a query `data >= ini && data <= fim` devolveria.
++ */
++import { DisponibilidadeRecord } from '../types';
++
++export interface Janela {
++  ini: string; // YYYY-MM-DD
++  fim: string; // YYYY-MM-DD
++}
++
++/** Menor janela que contém `a` e `b`. */
++export function uniaoJanelas(a: Janela, b: Janela): Janela {
++  return { ini: a.ini < b.ini ? a.ini : b.ini, fim: a.fim > b.fim ? a.fim : b.fim };
++}
++
++/** `externa` contém `interna` por inteiro? */
++export function janelaCobre(externa: Janela, interna: Janela): boolean {
++  return externa.ini <= interna.ini && externa.fim >= interna.fim;
++}
++
++/**
++ * Mesmo critério da query do Firestore (`where data >= ini` e `data <= fim`,
++ * comparação de strings): documento sem `data` não entra.
++ */
++export function recortarPorData(
++  items: DisponibilidadeRecord[],
++  { ini, fim }: Janela,
++): DisponibilidadeRecord[] {
++  return items.filter((r) => typeof r.data === 'string' && r.data >= ini && r.data <= fim);
++}
+diff --git a/src/lib/readCounter.ts b/src/lib/readCounter.ts
+new file mode 100644
+index 0000000..df5ffa8
+--- /dev/null
++++ b/src/lib/readCounter.ts
+@@ -0,0 +1,46 @@
++/**
++ * Contador de leituras do Firestore — SÓ EM DESENVOLVIMENTO (import.meta.env.DEV).
++ * Em produção, `contarLeituras` é no-op. Serve para medir quais pontos do app
++ * consomem a cota (Spark: 50 mil leituras/dia). Não altera nenhuma leitura.
++ *
++ * Uso no console do navegador:
++ *   __leituras()        → tabela com total por ponto de leitura
++ *   __leituras.reset()  → zera os contadores
++ *
++ * Contagem: aproximação da cobrança do Firestore — 1 por documento vindo do
++ * servidor (snapshot inicial = todos os docs; depois, só os alterados). Docs
++ * servidos pelo cache local não entram.
++ */
++const totais = new Map<string, { docs: number; chamadas: number }>();
++
++export function contarLeituras(rotulo: string, docs: number): void {
++  if (!import.meta.env.DEV) return;
++  const atual = totais.get(rotulo) ?? { docs: 0, chamadas: 0 };
++  atual.docs += docs;
++  atual.chamadas += 1;
++  totais.set(rotulo, atual);
++}
++
++/** Conta docs de um snapshot de `onSnapshot`, ignorando o que veio do cache. */
++export function contarSnapshot(
++  rotulo: string,
++  snapshot: { metadata: { fromCache: boolean }; docChanges: () => unknown[] },
++): void {
++  if (!import.meta.env.DEV) return;
++  if (snapshot.metadata.fromCache) return;
++  contarLeituras(rotulo, snapshot.docChanges().length);
++}
++
++if (import.meta.env.DEV && typeof window !== 'undefined') {
++  const w = window as unknown as { __leituras: (() => void) & { reset: () => void } };
++  const mostrar = () => {
++    const linhas = [...totais.entries()]
++      .map(([rotulo, v]) => ({ rotulo, docs: v.docs, chamadas: v.chamadas }))
++      .sort((a, b) => b.docs - a.docs);
++    const total = linhas.reduce((s, l) => s + l.docs, 0);
++    console.table(linhas);
++    console.log(`[leituras] total estimado nesta sessão: ${total}`);
++  };
++  mostrar.reset = () => totais.clear();
++  w.__leituras = mostrar;
++}
+diff --git a/src/services/eventosManutencaoCompartilhados.ts b/src/services/eventosManutencaoCompartilhados.ts
+new file mode 100644
+index 0000000..1a720f2
+--- /dev/null
++++ b/src/services/eventosManutencaoCompartilhados.ts
+@@ -0,0 +1,85 @@
++/**
++ * Leitura compartilhada da coleção INTEIRA `eventos_manutencao`.
++ *
++ * Antes, Previsão, Disponibilidade, Análise e a gaveta de histórico faziam
++ * `eventoManutencaoRepository.list()` (getDocs — sempre vai ao servidor,
++ * ignora o cache) a cada vez que a tela montava. Agora há UMA assinatura
++ * por sessão (que usa o cache local persistente: depois da 1ª carga só chega
++ * o delta), e cada tela pega uma "foto" dela ao montar.
++ *
++ * Para manter o comportamento de antes, a foto só é entregue depois que o
++ * servidor confirmou o snapshot (não dados velhos do cache) — igual ao
++ * `list()` — e cada chamador congela o resultado (não há atualização ao vivo
++ * dentro de uma tela já aberta). Sem Firebase configurado, delega ao
++ * `list()` do repositório local, como antes.
++ *
++ * Esta assinatura é SEM filtro de data, de propósito: a de `useEventosManutencaoLazy`
++ * filtra por `dataInicio` e não enxerga eventos antigos ainda abertos.
++ */
++import { collection, onSnapshot } from 'firebase/firestore';
++import { db, isFirebaseConfigured } from './firebase';
++import { COLLECTIONS, eventoManutencaoRepository } from './index';
++import { EventoManutencao } from '../types';
++import { contarSnapshot } from '../lib/readCounter';
++
++/** Se o servidor não confirmar nesse prazo (ex.: offline), entrega o que o cache tem. */
++const ESPERA_MAX_MS = 5000;
++
++let eventos: EventoManutencao[] = [];
++let confirmado = false;
++let falhou = false;
++let unsubscribe: (() => void) | null = null;
++let esperando: Array<() => void> = [];
++
++function liberar() {
++  const fila = esperando;
++  esperando = [];
++  fila.forEach((f) => f());
++}
++
++function garantirAssinatura() {
++  if (unsubscribe) return;
++  unsubscribe = onSnapshot(
++    collection(db, COLLECTIONS.eventosManutencao),
++    { includeMetadataChanges: true },
++    (snapshot) => {
++      contarSnapshot('onSnapshot:eventos_manutencao (compartilhado)', snapshot);
++      // Novo array a cada snapshot — nunca muda um array já entregue a alguém.
++      eventos = snapshot.docs.map((d) => d.data() as EventoManutencao);
++      if (!snapshot.metadata.fromCache) {
++        confirmado = true;
++        liberar();
++      }
++    },
++    (e) => {
++      console.error('[eventosManutencao] falha na assinatura compartilhada — voltando a ler com list():', e);
++      falhou = true;
++      unsubscribe = null;
++      liberar();
++    },
++  );
++}
++
++/** Todos os eventos de manutenção (foto do momento da chamada). */
++export async function obterTodosEventosManutencao(): Promise<EventoManutencao[]> {
++  if (!isFirebaseConfigured || falhou) return eventoManutencaoRepository.list();
++  garantirAssinatura();
++  if (!confirmado) {
++    await new Promise<void>((resolve) => {
++      esperando.push(resolve);
++      setTimeout(resolve, ESPERA_MAX_MS);
++    });
++    if (falhou) return eventoManutencaoRepository.list();
++  }
++  return eventos;
++}
++
++/** Encerra a assinatura (logout). */
++export function desconectarEventosManutencaoCompartilhados(): void {
++  unsubscribe?.();
++  unsubscribe = null;
++  eventos = [];
++  confirmado = false;
++  falhou = false;
++  liberar();
++}
+diff --git a/src/services/firestoreRepository.ts b/src/services/firestoreRepository.ts
+index 405a2fc..b383237 100644
+--- a/src/services/firestoreRepository.ts
++++ b/src/services/firestoreRepository.ts
+@@ -12,6 +12,7 @@ import {
+   Firestore,
+ } from 'firebase/firestore';
+ import { Repository, RangeFilter } from './repository';
++import { contarLeituras, contarSnapshot } from '../lib/readCounter';
+ 
+ /**
+  * Implementação de `Repository` sobre o Cloud Firestore.
+@@ -48,6 +49,7 @@ export class FirestoreRepository<T> implements Repository<T> {
+ 
+   async list(): Promise<T[]> {
+     const snapshot = await getDocs(this.ref);
++    contarLeituras(`getDocs:${this.collectionName}`, snapshot.size);
+     return snapshot.docs.map((d) => d.data() as T);
+   }
+ 
+@@ -80,7 +82,10 @@ export class FirestoreRepository<T> implements Repository<T> {
+   ): () => void {
+     return onSnapshot(
+       this.withRange(range),
+-      (snapshot) => onChange(snapshot.docs.map((d) => d.data() as T)),
++      (snapshot) => {
++        contarSnapshot(`onSnapshot:${this.collectionName}`, snapshot);
++        onChange(snapshot.docs.map((d) => d.data() as T));
++      },
+       (error) => onError?.(error),
+     );
+   }
+diff --git a/src/services/index.ts b/src/services/index.ts
+index d7bb325..cd03c9d 100644
+--- a/src/services/index.ts
++++ b/src/services/index.ts
+@@ -14,6 +14,7 @@ import { LocalStorageRepository } from './localStorageRepository';
+ import { FirestoreRepository } from './firestoreRepository';
+ import { db, isFirebaseConfigured } from './firebase';
+ import { seedFirestore } from './seedFirestore';
++import { contarLeituras } from '../lib/readCounter';
+ import { INITIAL_EQUIPMENT, INITIAL_WORKS } from '../data/seed';
+ 
+ export const COLLECTIONS = {
+@@ -226,6 +227,7 @@ export async function fetchIntervalo(
+         where('data', '<=', dataFim),
+       ),
+     );
++    contarLeituras('getDocs:disponibilidade (fetchIntervalo)', snapshot.size);
+     return snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
+   } catch (e) {
+     console.error(
+@@ -237,6 +239,39 @@ export async function fetchIntervalo(
+   }
+ }
+ 
++/**
++ * Dias de `disponibilidade` vinculados a um evento (`eventoId == id`). Query
++ * de campo único (sem índice composto) — lê só os documentos do evento, em
++ * vez da coleção inteira para filtrar em memória.
++ */
++export async function fetchDiasDoEvento(eventoId: string): Promise<DisponibilidadeRecord[]> {
++  if (!isFirebaseConfigured) {
++    const all = await disponibilidadeRepository.list();
++    return all.filter((d) => d.eventoId === eventoId);
++  }
++  const snapshot = await getDocs(
++    query(collection(db, COLLECTIONS.disponibilidade), where('eventoId', '==', eventoId)),
++  );
++  contarLeituras('getDocs:disponibilidade (fetchDiasDoEvento)', snapshot.size);
++  return snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
++}
++
++/**
++ * Eventos de manutenção de um equipamento (`prefixo == X`). Query de campo
++ * único — lê só os eventos daquele prefixo, não a coleção inteira.
++ */
++export async function fetchEventosDoPrefixo(prefixo: string): Promise<EventoManutencao[]> {
++  if (!isFirebaseConfigured) {
++    const all = await eventoManutencaoRepository.list();
++    return all.filter((e) => e.prefixo === prefixo);
++  }
++  const snapshot = await getDocs(
++    query(collection(db, COLLECTIONS.eventosManutencao), where('prefixo', '==', prefixo)),
++  );
++  contarLeituras('getDocs:eventos_manutencao (fetchEventosDoPrefixo)', snapshot.size);
++  return snapshot.docs.map((d) => d.data() as EventoManutencao);
++}
++
+ /**
+  * Último `status_dia` registrado de um equipamento antes de `antesDe`
+  * (exclusivo), ou `null` se não houver nenhum. Leitura pontual, 1 documento,
+@@ -268,6 +303,7 @@ export async function fetchUltimoRegistroAntes(
+         limit(1),
+       ),
+     );
++    contarLeituras('getDocs:disponibilidade (fetchUltimoRegistroAntes)', snapshot.size);
+     return snapshot.empty ? null : (snapshot.docs[0].data() as DisponibilidadeRecord);
+   } catch (e) {
+     console.error(
+@@ -317,6 +353,7 @@ export async function fetchUltimosRegistros(
+         where('data', '<', antesDe),
+       ),
+     );
++    contarLeituras('getDocs:disponibilidade (fetchUltimosRegistros)', snapshot.size);
+     snapshot.docs.forEach((d) => registrar(d.data() as DisponibilidadeRecord));
+     return porPrefixo;
+   } catch (e) {
+diff --git a/src/services/manutencaoReconciliation.ts b/src/services/manutencaoReconciliation.ts
+index 33cb8b8..13e9ca4 100644
+--- a/src/services/manutencaoReconciliation.ts
++++ b/src/services/manutencaoReconciliation.ts
+@@ -29,7 +29,7 @@
+ import { doc, getDoc, runTransaction } from 'firebase/firestore';
+ import { addDays, format } from 'date-fns';
+ import { db, isFirebaseConfigured } from './firebase';
+-import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository, fetchIntervalo } from './index';
++import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository, fetchIntervalo, fetchEventosDoPrefixo } from './index';
+ import { DisponibilidadeRecord, DisponibilidadeStatus, EventoManutencao, TipoManutencao, SistemaManutencao } from '../types';
+ 
+ /** Janela inicial do scan de bloco — escopo de leitura, não de tempo esperado do evento. */
+@@ -267,7 +267,7 @@ export type VinculoPreview =
+ export async function buscarUltimaClassificacao(
+   prefixo: string,
+ ): Promise<{ tipo: TipoManutencao | null; sistema: SistemaManutencao | null } | null> {
+-  const eventos = (await eventoManutencaoRepository.list()).filter((e) => e.prefixo === prefixo);
++  const eventos = await fetchEventosDoPrefixo(prefixo);
+   const comClassificacao = eventos
+     .filter((e) => e.tipo || e.sistema)
+     .sort((a, b) => b.dataInicio.localeCompare(a.dataInicio));

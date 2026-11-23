@@ -7,7 +7,7 @@ import { Collection } from '../../hooks/useCollection';
 import { useEventosManutencaoLazy } from '../../hooks/useEventosManutencaoLazy';
 import { verificarAberto, diasSemAtualizacao } from '../../services/manutencaoQueries';
 import { executarBackfillManutencao } from '../../services/manutencaoBackfill';
-import { disponibilidadeRepository } from '../../services';
+import { disponibilidadeRepository, fetchDiasDoEvento } from '../../services';
 import { PageHeader, StatCard, FilterSelect, MultiSelectPicker, StateMessage, Button } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
@@ -252,8 +252,7 @@ export function ManutencaoView({ equipments, equipamentoObra }: Props) {
     }
     setDeletingId(evento.id);
     try {
-      const todos = await disponibilidadeRepository.list();
-      const diasDoEvento = todos.filter((d) => d.eventoId === evento.id);
+      const diasDoEvento = await fetchDiasDoEvento(evento.id);
       for (const dia of diasDoEvento) {
         const { eventoId, ...resto } = dia;
         await disponibilidadeRepository.update(dia.id, resto);

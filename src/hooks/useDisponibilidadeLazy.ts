@@ -1,34 +1,46 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { disponibilidadeRepository } from '../services';
 import { DisponibilidadeRecord } from '../types';
 import { Collection } from './useCollection';
 import { recordChange } from '../lib/lastChange';
+import { Janela, janelaCobre, recortarPorData, uniaoJanelas } from '../lib/janelaDisponibilidade';
 
 /**
  * Assinatura sob demanda e paginada por período da coleção `disponibilidade`.
  *
  * A primeira tela que chamar `useDisponibilidadeLazy` dispara o `onSnapshot`
- * — filtrado por `[dataInicio, dataFim]`, não a coleção inteira — uma vez
- * só. Quem nunca abre a tela de Disponibilidade não paga nada. A partir daí
- * a assinatura vive em escopo de módulo, fora do ciclo de vida de qualquer
- * componente: trocar de aba e voltar, com o mesmo intervalo, não reassina.
- * Só quando o intervalo pedido MUDA (usuário troca de mês) é que a
- * assinatura anterior é encerrada e uma nova, para o novo intervalo, é
- * aberta — esse é o custo esperado da paginação, e é bem menor que o
- * full-scan que substitui.
+ * — filtrado por período, não a coleção inteira — uma vez só. A assinatura
+ * vive em escopo de módulo, fora do ciclo de vida de qualquer componente.
+ *
+ * Janela só-crescente: cada tela pede um intervalo diferente (Previsão =
+ * início do 1º período → hoje; Disponibilidade = mês(es) em tela; Análise =
+ * ano). Antes, cada troca de intervalo cancelava e recriava a assinatura,
+ * relendo os documentos a cada troca de aba. Agora a assinatura cobre a
+ * UNIÃO dos intervalos já pedidos na sessão e só é refeita quando uma tela
+ * pede algo fora da janela atual (ela alarga, nunca encolhe). Cada tela
+ * recebe apenas o recorte `[dataInicio, dataFim]` que pediu — o mesmo
+ * conjunto que a query antiga devolvia — e enquanto a janela ainda não
+ * cobre o pedido ela vê `items: []` + `loading: true`, como antes.
  *
  * `disconnectDisponibilidade` encerra a assinatura; chamar só no logout
  * (ver `AppShell`), nunca em cleanup de tela.
  */
 
 interface State {
+  /** Documentos crus da assinatura — cobrem `carregada`, nada além. */
   items: DisponibilidadeRecord[];
   loading: boolean;
   error: string | null;
+  /** Janela que `items` já cobre (null enquanto o 1º snapshot não chegou). */
+  carregada: Janela | null;
 }
 
-let state: State = { items: [], loading: true, error: null };
-let currentRangeKey: string | null = null;
+const ESTADO_VAZIO: State = { items: [], loading: true, error: null, carregada: null };
+
+const EMPTY: DisponibilidadeRecord[] = [];
+
+let state: State = ESTADO_VAZIO;
+let janelaAssinada: Janela | null = null;
 let unsubscribe: (() => void) | null = null;
 const listeners = new Set<() => void>();
 
@@ -37,25 +49,25 @@ function setState(partial: Partial<State>) {
   listeners.forEach((l) => l());
 }
 
-function ensureSubscribed(dataInicio: string, dataFim: string) {
-  const key = `${dataInicio}|${dataFim}`;
-  if (currentRangeKey === key && unsubscribe) return;
+function ensureSubscribed(pedida: Janela) {
+  if (unsubscribe && janelaAssinada && janelaCobre(janelaAssinada, pedida)) return;
 
+  const alvo = janelaAssinada ? uniaoJanelas(janelaAssinada, pedida) : pedida;
   unsubscribe?.();
-  currentRangeKey = key;
-  state = { items: [], loading: true, error: null };
+  janelaAssinada = alvo;
+  state = ESTADO_VAZIO;
   unsubscribe = disponibilidadeRepository.subscribe!(
-    (items) => setState({ items, loading: false, error: null }),
+    (items) => setState({ items, loading: false, error: null, carregada: alvo }),
     (e) => setState({ error: e.message, loading: false }),
-    { gte: dataInicio, lte: dataFim },
+    { gte: alvo.ini, lte: alvo.fim },
   );
 }
 
 export function disconnectDisponibilidade(): void {
   unsubscribe?.();
   unsubscribe = null;
-  currentRangeKey = null;
-  state = { items: [], loading: true, error: null };
+  janelaAssinada = null;
+  state = ESTADO_VAZIO;
 }
 
 function subscribeStore(cb: () => void) {
@@ -72,8 +84,18 @@ export function useDisponibilidadeLazy(
   dataFim: string,
   userLabel?: string,
 ): Collection<DisponibilidadeRecord> {
-  ensureSubscribed(dataInicio, dataFim);
+  ensureSubscribed({ ini: dataInicio, fim: dataFim });
   const snapshot = useSyncExternalStore(subscribeStore, getSnapshot);
+
+  const { items: rawItems, carregada } = snapshot;
+  const cobertura = carregada !== null && janelaCobre(carregada, { ini: dataInicio, fim: dataFim });
+  const items = useMemo(
+    () => (cobertura ? recortarPorData(rawItems, { ini: dataInicio, fim: dataFim }) : EMPTY),
+    [cobertura, rawItems, dataInicio, dataFim],
+  );
+  // Janela ainda não cobre o pedido (alargando): comporta-se como antes de uma
+  // troca de intervalo — sem itens e carregando.
+  const loading = cobertura ? snapshot.loading : snapshot.error ? false : true;
 
   const create = useCallback(
     async (item: DisponibilidadeRecord) => {
@@ -100,8 +122,12 @@ export function useDisponibilidadeLazy(
   );
 
   const reload = useCallback(async () => {
-    setState({ items: await disponibilidadeRepository.list() });
+    // Coleção inteira: cobre qualquer recorte pedido, até o próximo snapshot.
+    setState({
+      items: await disponibilidadeRepository.list(),
+      carregada: { ini: '0000-01-01', fim: '9999-12-31' },
+    });
   }, []);
 
-  return { items: snapshot.items, loading: snapshot.loading, error: snapshot.error, create, update, remove, reload };
+  return { items, loading, error: snapshot.error, create, update, remove, reload };
 }

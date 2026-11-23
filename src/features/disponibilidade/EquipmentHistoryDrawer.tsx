@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Drawer, StateMessage } from '../../components/ui';
-import { eventoManutencaoRepository } from '../../services';
+import { obterTodosEventosManutencao } from '../../services/eventosManutencaoCompartilhados';
 import { EventoManutencao } from '../../types';
 
 interface Props {
@@ -30,7 +30,7 @@ export function EquipmentHistoryDrawer({ prefixo, descricao, onClose }: Props) {
   useEffect(() => {
     let cancelado = false;
     (async () => {
-      const todos = await eventoManutencaoRepository.list();
+      const todos = await obterTodosEventosManutencao();
       if (!cancelado) {
         setEventos(todos.filter((e) => e.prefixo === prefixo).sort((a, b) => b.dataInicio.localeCompare(a.dataInicio)));
       }

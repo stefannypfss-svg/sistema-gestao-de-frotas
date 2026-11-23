@@ -7,8 +7,7 @@ import { cn, formatCurrency } from '../../lib/utils';
 import { uniqueFamilies } from '../../domain/equipment';
 import { computeForecastFromEquipObra, periodoMedicaoAtual } from '../../domain/forecast';
 import { useDisponibilidadeLazy } from '../../hooks/useDisponibilidadeLazy';
-import { eventoManutencaoRepository } from '../../services';
-import { EventoManutencao } from '../../types';
+import { useEventosManutencaoTodos } from '../../hooks/useEventosManutencaoTodos';
 import { PageHeader, Button, Card, FilterSelect, MultiSelectPicker } from '../../components/ui';
 
 const HOJE_STR = format(new Date(), 'yyyy-MM-dd');
@@ -115,16 +114,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
   // evento pode ter começado num mês anterior e ainda estar aberto agora
   // (dataInicio ficaria fora de qualquer range mensal) — precisamos do
   // `tipo` dele mesmo assim, pra não excluir Avaria por engano.
-  const [eventosManutencao, setEventosManutencao] = React.useState<EventoManutencao[]>([]);
-  React.useEffect(() => {
-    let cancelado = false;
-    eventoManutencaoRepository.list().then((todos) => {
-      if (!cancelado) setEventosManutencao(todos);
-    });
-    return () => {
-      cancelado = true;
-    };
-  }, []);
+  const eventosManutencao = useEventosManutencaoTodos();
 
   const { rows: rowsFull, periodos: periodosFull } = computeForecastFromEquipObra(
     equipments,

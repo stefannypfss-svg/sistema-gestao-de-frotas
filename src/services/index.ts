@@ -14,6 +14,7 @@ import { LocalStorageRepository } from './localStorageRepository';
 import { FirestoreRepository } from './firestoreRepository';
 import { db, isFirebaseConfigured } from './firebase';
 import { seedFirestore } from './seedFirestore';
+import { contarLeituras } from '../lib/readCounter';
 import { INITIAL_EQUIPMENT, INITIAL_WORKS } from '../data/seed';
 
 export const COLLECTIONS = {
@@ -226,6 +227,7 @@ export async function fetchIntervalo(
         where('data', '<=', dataFim),
       ),
     );
+    contarLeituras('getDocs:disponibilidade (fetchIntervalo)', snapshot.size);
     return snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
   } catch (e) {
     console.error(
@@ -235,6 +237,39 @@ export async function fetchIntervalo(
     );
     throw e;
   }
+}
+
+/**
+ * Dias de `disponibilidade` vinculados a um evento (`eventoId == id`). Query
+ * de campo único (sem índice composto) — lê só os documentos do evento, em
+ * vez da coleção inteira para filtrar em memória.
+ */
+export async function fetchDiasDoEvento(eventoId: string): Promise<DisponibilidadeRecord[]> {
+  if (!isFirebaseConfigured) {
+    const all = await disponibilidadeRepository.list();
+    return all.filter((d) => d.eventoId === eventoId);
+  }
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.disponibilidade), where('eventoId', '==', eventoId)),
+  );
+  contarLeituras('getDocs:disponibilidade (fetchDiasDoEvento)', snapshot.size);
+  return snapshot.docs.map((d) => d.data() as DisponibilidadeRecord);
+}
+
+/**
+ * Eventos de manutenção de um equipamento (`prefixo == X`). Query de campo
+ * único — lê só os eventos daquele prefixo, não a coleção inteira.
+ */
+export async function fetchEventosDoPrefixo(prefixo: string): Promise<EventoManutencao[]> {
+  if (!isFirebaseConfigured) {
+    const all = await eventoManutencaoRepository.list();
+    return all.filter((e) => e.prefixo === prefixo);
+  }
+  const snapshot = await getDocs(
+    query(collection(db, COLLECTIONS.eventosManutencao), where('prefixo', '==', prefixo)),
+  );
+  contarLeituras('getDocs:eventos_manutencao (fetchEventosDoPrefixo)', snapshot.size);
+  return snapshot.docs.map((d) => d.data() as EventoManutencao);
 }
 
 /**
@@ -268,6 +303,7 @@ export async function fetchUltimoRegistroAntes(
         limit(1),
       ),
     );
+    contarLeituras('getDocs:disponibilidade (fetchUltimoRegistroAntes)', snapshot.size);
     return snapshot.empty ? null : (snapshot.docs[0].data() as DisponibilidadeRecord);
   } catch (e) {
     console.error(
@@ -317,6 +353,7 @@ export async function fetchUltimosRegistros(
         where('data', '<', antesDe),
       ),
     );
+    contarLeituras('getDocs:disponibilidade (fetchUltimosRegistros)', snapshot.size);
     snapshot.docs.forEach((d) => registrar(d.data() as DisponibilidadeRecord));
     return porPrefixo;
   } catch (e) {

@@ -29,7 +29,7 @@
 import { doc, getDoc, runTransaction } from 'firebase/firestore';
 import { addDays, format } from 'date-fns';
 import { db, isFirebaseConfigured } from './firebase';
-import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository, fetchIntervalo } from './index';
+import { COLLECTIONS, disponibilidadeRepository, eventoManutencaoRepository, fetchIntervalo, fetchEventosDoPrefixo } from './index';
 import { DisponibilidadeRecord, DisponibilidadeStatus, EventoManutencao, TipoManutencao, SistemaManutencao } from '../types';
 
 /** Janela inicial do scan de bloco — escopo de leitura, não de tempo esperado do evento. */
@@ -267,7 +267,7 @@ export type VinculoPreview =
 export async function buscarUltimaClassificacao(
   prefixo: string,
 ): Promise<{ tipo: TipoManutencao | null; sistema: SistemaManutencao | null } | null> {
-  const eventos = (await eventoManutencaoRepository.list()).filter((e) => e.prefixo === prefixo);
+  const eventos = await fetchEventosDoPrefixo(prefixo);
   const comClassificacao = eventos
     .filter((e) => e.tipo || e.sistema)
     .sort((a, b) => b.dataInicio.localeCompare(a.dataInicio));
